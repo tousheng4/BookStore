@@ -1,0 +1,27 @@
+@page "{id:int}"
+@model BookStoreSample.Pages.Admin.Products.DeleteModel
+@{
+    ViewData["Title"] = "删除图书";
+}
+
+@if (Model.Product is null)
+{
+    <div class="alert error">未找到要删除的图书。</div>
+}
+else
+{
+    <section class="admin-panel admin-panel-plain">
+        <div class="section-heading">
+            <div>
+                <span class="section-kicker">删除图书</span>
+                <h1 class="section-title">删除图书</h1>
+            </div>
+        </div>
+        <p class="panel-copy">《@Model.Product.Title》将从当前目录中移除，删除后不可恢复。</p>
+        <form method="post" class="hero-actions">
+            <input type="hidden" name="id" value="@Model.Product.Id" />
+            <button type="submit" class="danger-button">确认删除</button>
+            <a class="ghost-button" asp-page="/Admin/Products/Index">返回列表</a>
+        </form>
+    </section>
+}

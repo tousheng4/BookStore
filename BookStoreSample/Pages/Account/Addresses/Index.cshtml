@@ -1,0 +1,67 @@
+@page
+@model BookStoreSample.Pages.Account.Addresses.IndexModel
+@{
+    ViewData["Title"] = "收货地址";
+}
+
+<div class="page-shell">
+    <h2>收货地址</h2>
+
+    @if (Model.Addresses.Count == 0)
+    {
+        <p class="muted-text">暂无收货地址，</p>
+    }
+    else
+    {
+        <ul class="address-list">
+            @foreach (var addr in Model.Addresses)
+            {
+                <li class="address-card @(addr.IsDefault ? "is-default" : "")">
+                    <div class="address-body">
+                        <div class="address-tag-row">
+                            @if (addr.IsDefault)
+                            {
+                                <span class="address-tag default">默认</span>
+                            }
+                            <span class="address-tag">@addr.Province @addr.City @addr.District</span>
+                        </div>
+                        <p class="address-name">@addr.ReceiverName &nbsp; @addr.ReceiverPhone</p>
+                        <p class="address-street">@addr.StreetAddress</p>
+                    </div>
+                    <div class="address-actions">
+                        <a asp-page="Edit" asp-route-id="@addr.Id" class="ghost-button">编辑</a>
+                        <form method="post" asp-page-handler="SetDefault" asp-route-id="@addr.Id" style="display:inline">
+                            @if (!addr.IsDefault)
+                            {
+                                <button type="submit" class="ghost-button">设为默认</button>
+                            }
+                        </form>
+                        <form method="post" asp-page-handler="Delete" asp-route-id="@addr.Id" style="display:inline"
+                              onsubmit="return confirm('确定删除该地址？');">
+                            <button type="submit" class="ghost-button danger">删除</button>
+                        </form>
+                    </div>
+                </li>
+            }
+        </ul>
+    }
+
+    <div class="page-actions">
+        <a asp-page="Edit" class="primary-button">新增地址</a>
+        <a asp-page="/Cart/Checkout" class="secondary-button">返回购物车</a>
+    </div>
+</div>
+
+<style>
+    .address-list { list-style: none; padding: 0; margin: 1rem 0; }
+    .address-card { border: 1px solid var(--paper-deep); border-radius: 4px; padding: 1rem; margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: flex-start; }
+    .address-card.is-default { border-color: var(--accent); background: rgba(141, 43, 39, 0.04); }
+    .address-tag-row { margin-bottom: 0.4rem; }
+    .address-tag { font-size: 0.75rem; color: var(--muted); background: var(--paper); padding: 0.15rem 0.4rem; border-radius: 2px; margin-right: 0.25rem; }
+    .address-tag.default { background: var(--accent); color: #fff; }
+    .address-name { font-weight: 600; margin: 0.25rem 0; }
+    .address-street { color: var(--muted); font-size: 0.9rem; margin: 0.25rem 0; }
+    .address-actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
+    .page-actions { display: flex; gap: 0.75rem; margin-top: 1rem; }
+    .muted-text { color: var(--muted); }
+</style>

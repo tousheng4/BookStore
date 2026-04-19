@@ -1,0 +1,87 @@
+@using System.Security.Claims
+@using BookStoreSample.Services
+@inject StoreService StoreService
+@{
+    var unreadNotificationCount = 0;
+    if (User.Identity?.IsAuthenticated == true)
+    {
+        var layoutUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!string.IsNullOrWhiteSpace(layoutUserId))
+        {
+            unreadNotificationCount = await StoreService.GetUnreadNotificationCountAsync(layoutUserId);
+        }
+    }
+}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - 线上书房</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body class="@(ViewContext.RouteData.Values["page"]?.ToString() == "/Index" ? "home-page" : string.Empty)">
+<div class="page-shell">
+    <header class="topbar @(ViewContext.RouteData.Values["page"]?.ToString() == "/Index" ? "topbar-home" : string.Empty)">
+        <div class="container topbar-inner">
+            <a class="brandmark" asp-page="/Index">线上书房</a>
+            <nav class="main-nav">
+                <a asp-page="/Products/Index">书店</a>
+                <a asp-page="/Cart/Index">购物袋</a>
+                <a asp-page="/Account/Index">个人中心</a>
+                @if (User.IsInRole(UserRoles.Admin))
+                {
+                    <a asp-page="/Admin/Index">后台</a>
+                }
+            </nav>
+            <div class="account-tools">
+                @if (User.Identity?.IsAuthenticated == true)
+                {
+                    <a class="notification-bell" asp-page="/Account/Notifications" aria-label="通知中心，@unreadNotificationCount 条未读">
+                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                            <path d="M12 22a2.7 2.7 0 0 0 2.6-2h-5.2A2.7 2.7 0 0 0 12 22Zm7-6.2c-1.4-1.2-2-2.7-2-5.3 0-3-1.7-5.3-4.3-5.9V3.8a.7.7 0 0 0-1.4 0v.8C8.7 5.2 7 7.5 7 10.5c0 2.6-.6 4.1-2 5.3-.5.4-.2 1.2.4 1.2h13.2c.6 0 .9-.8.4-1.2Z" />
+                        </svg>
+                        @if (unreadNotificationCount > 0)
+                        {
+                            <span class="notification-badge">@(unreadNotificationCount > 99 ? "99+" : unreadNotificationCount)</span>
+                        }
+                    </a>
+                    <span class="account-chip">@User.FindFirstValue("DisplayName")</span>
+                    <form method="post" asp-page="/Account/Logout">
+                        <button type="submit" class="ghost-button">退出</button>
+                    </form>
+                }
+                else
+                {
+                    <a asp-page="/Account/Login" class="ghost-link">登录</a>
+                    <a asp-page="/Account/Register" class="pill-link">注册</a>
+                }
+            </div>
+        </div>
+    </header>
+
+    <main class="container page-content">
+        @RenderBody()
+    </main>
+
+    @RenderSection("Scripts", required: false)
+
+    <footer class="site-footer container">
+        <div class="footer-grid">
+            <div>
+                <div class="footer-title">线上书房</div>
+                <p>在线图书选购平台，提供图书浏览、下单与订单管理服务。</p>
+            </div>
+            <div class="footer-links">
+                <a asp-page="/Products/Index">全部图书</a>
+                <a asp-page="/Account/Index">个人中心</a>
+                <a asp-page="/Cart/Index">购物袋</a>
+            </div>
+        </div>
+    </footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,141 @@
+@page
+@model BookStoreSample.Pages.Orders.IndexModel
+@{
+    var isAdmin = User.IsInRole(UserRoles.Admin);
+    ViewData["Title"] = isAdmin ? "订单管理" : "我的订单";
+}
+
+<section class="tool-main">
+    <div class="section-heading">
+        <div>
+            <span class="section-kicker">Orders</span>
+            <h1 class="section-title">@(isAdmin ? "订单管理" : "我的订单")</h1>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Model.Message))
+    {
+        <p class="alert success">@Model.Message</p>
+    }
+
+    @if (Model.Orders.Count == 0)
+    {
+        <div class="tool-row empty-state">目前还没有订单记录。</div>
+    }
+    else
+    {
+        <div class="order-list">
+            @foreach (var order in Model.Orders)
+            {
+                var firstItem = order.Items.FirstOrDefault();
+                var canCancel = isAdmin
+                    ? OrderStatuses.CanTransition(order.Status, OrderStatuses.Cancelled)
+                    : OrderStatuses.CanCustomerCancel(order.Status);
+                var canPay = !isAdmin && OrderStatuses.CanTransition(order.Status, OrderStatuses.Paid);
+                var canConfirmReceipt = !isAdmin && OrderStatuses.CanTransition(order.Status, OrderStatuses.Received);
+
+                <article class="tool-row">
+                    <div class="order-items-row">
+                        @if (firstItem is not null)
+                        {
+                            <img src="@firstItem.CoverUrl" alt="@firstItem.Title" class="order-cover" loading="lazy" />
+                            <div class="order-info">
+                                <span class="order-book-title">@firstItem.Title</span>
+                                @if (order.Items.Count > 1)
+                                {
+                                    <span class="order-more-hint">+@(order.Items.Count - 1) 件商品</span>
+                                }
+                            </div>
+                        }
+                        <div class="order-meta">
+                            <span>订单 #@order.Id</span>
+                            <span class="status-tag">@order.Status</span>
+                            <span>@order.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
+                            @if (isAdmin)
+                            {
+                                <span>@(order.User?.DisplayName ?? order.User?.UserName ?? "未知用户")</span>
+                            }
+                        </div>
+                    </div>
+                    <div class="order-row">
+                        <strong class="order-total">￥@order.TotalAmount.ToString("0.00")</strong>
+                        <div class="order-actions">
+                            <a class="secondary-button" asp-page="/Orders/Details" asp-route-id="@order.Id">查看详情</a>
+                            @if (canPay)
+                            {
+                                <form method="post" asp-page-handler="Pay" class="inline-form">
+                                    <input type="hidden" name="id" value="@order.Id" />
+                                    <button type="submit" class="primary-button">去支付</button>
+                                </form>
+                            }
+                            @if (canConfirmReceipt)
+                            {
+                                <form method="post" asp-page-handler="ConfirmReceipt" class="inline-form">
+                                    <input type="hidden" name="id" value="@order.Id" />
+                                    <button type="submit" class="primary-button">确认收货</button>
+                                </form>
+                            }
+                            @if (canCancel)
+                            {
+                                <form method="post" asp-page-handler="Cancel" class="inline-form">
+                                    <input type="hidden" name="id" value="@order.Id" />
+                                    <button type="submit" class="danger-button">取消订单</button>
+                                </form>
+                            }
+                        </div>
+                    </div>
+                </article>
+            }
+        </div>
+    }
+</section>
+
+<style>
+    .order-list { display: flex; flex-direction: column; gap: 0.75rem; }
+
+    .tool-row { padding: 1rem 0; }
+
+    .order-items-row {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+        flex-wrap: wrap;
+    }
+
+    .order-cover {
+        width: 40px;
+        height: 54px;
+        object-fit: cover;
+        border-radius: 2px;
+        flex-shrink: 0;
+    }
+
+    .order-info {
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+        flex: 1;
+        min-width: 0;
+    }
+
+    .order-book-title {
+        font-size: 0.95rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 300px;
+    }
+
+    .order-more-hint {
+        font-size: 0.8rem;
+        color: var(--muted);
+    }
+
+    .order-meta { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+    .order-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+    .order-actions { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; justify-content: flex-end; }
+    .inline-form { margin: 0; }
+    .order-total { font-size: 1rem; }
+    .status-tag { color: var(--accent-strong); font-weight: 600; }
+</style>

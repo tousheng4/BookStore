@@ -1,0 +1,101 @@
+@page
+@model BookStoreSample.Pages.Admin.Inventory.IndexModel
+@{
+    ViewData["Title"] = "库存流水";
+}
+
+<section class="admin-panel admin-panel-plain">
+    <div class="section-heading">
+        <div>
+            <span class="section-kicker">Inventory</span>
+            <h1 class="section-title">库存流水</h1>
+        </div>
+        <div class="admin-actions">
+            <a class="ghost-button" asp-page="/Admin/Index">后台看板</a>
+            <a class="ghost-button" asp-page="/Admin/Products/Index">商品管理</a>
+        </div>
+    </div>
+
+    @if (Model.Logs.Count == 0)
+    {
+        <div class="tool-row empty-state">暂无库存变更记录。</div>
+    }
+    else
+    {
+        <table class="admin-table">
+            <thead>
+            <tr>
+                <th>时间</th>
+                <th>图书</th>
+                <th>类型</th>
+                <th>变更</th>
+                <th>库存</th>
+                <th>关联订单</th>
+                <th>操作人</th>
+                <th>说明</th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var log in Model.Logs)
+            {
+                <tr>
+                    <td>@log.ChangedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                    <td>
+                        <a asp-page="/Admin/Products/Edit" asp-route-id="@log.ProductId">@log.ProductTitle</a>
+                    </td>
+                    <td>@DisplayType(log.ChangeType)</td>
+                    <td class="@(log.QuantityChanged < 0 ? "stock-negative" : "stock-positive")">
+                        @(log.QuantityChanged > 0 ? "+" : "")@log.QuantityChanged
+                    </td>
+                    <td>@log.QuantityBefore -> @log.QuantityAfter</td>
+                    <td>
+                        @if (log.OrderId is not null)
+                        {
+                            <a asp-page="/Orders/Details" asp-route-id="@log.OrderId">#@log.OrderId</a>
+                        }
+                        else
+                        {
+                            <span class="muted-text">-</span>
+                        }
+                    </td>
+                    <td>@log.ChangedBy</td>
+                    <td>@log.Note</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+</section>
+
+@functions {
+    private static string DisplayType(string type) => type switch
+    {
+        "OrderCreated" => "下单扣减",
+        "OrderCancelled" => "取消回滚",
+        "AdminAdjustment" => "后台调整",
+        _ => type
+    };
+}
+
+<style>
+    .admin-actions {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+
+    .stock-negative {
+        color: var(--accent-strong);
+        font-weight: 700;
+    }
+
+    .stock-positive {
+        color: var(--forest);
+        font-weight: 700;
+    }
+
+    .muted-text {
+        color: var(--muted);
+    }
+</style>

@@ -1,0 +1,333 @@
+@page "{id:int}"
+@model BookStoreSample.Pages.Products.DetailsModel
+@Html.AntiForgeryToken()
+@{
+    ViewData["Title"] = "图书详情";
+}
+
+@if (Model.Product is null)
+{
+    <div class="alert error">未找到对应图书。</div>
+}
+else
+{
+    <section class="product-detail">
+        <article class="detail-cover detail-cover-plain">
+            <img src="@Model.Product.CoverUrl" alt="@Model.Product.Title" />
+        </article>
+        <article class="product-detail-copy">
+            <div>
+                <p class="book-tile-meta">@Model.Product.Category</p>
+                <h1 class="detail-title">@Model.Product.Title</h1>
+                <p class="detail-copy detail-lead">@Model.Product.Description</p>
+            </div>
+            <div class="detail-meta">
+                <span>@Model.Product.Author</span>
+                <span>@Model.Product.Publisher</span>
+                <span>库存 @Model.Product.Stock</span>
+                <span>@(Model.Product.IsActive ? "上架中" : "已下架")</span>
+                <span>评分 @Model.ReviewSummary.AverageText (@Model.ReviewSummary.Count)</span>
+            </div>
+            <div class="purchase-strip">
+                <span class="product-price">￥@Model.Product.Price</span>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(Model.Message))
+            {
+                <div class="alert @Model.MessageType">@Model.Message</div>
+            }
+
+            @if (Model.Product.IsActive)
+            {
+                <form method="post" class="purchase-form">
+                    <input type="hidden" asp-for="Input.ProductId" />
+                    <div class="purchase-form-row">
+                        <label asp-for="Input.Quantity"></label>
+                        <input class="editorial-input quantity-input" asp-for="Input.Quantity" type="number" min="1" />
+                        <button type="submit" class="primary-button">加入购物袋</button>
+                        <a asp-page="/Products/Index" class="ghost-button">返回书店</a>
+                    </div>
+                </form>
+                <div class="wishlist-row">
+                    <button type="button"
+                            id="wishlist-toggle"
+                            class="@(Model.IsInWishlist ? "secondary-button" : "ghost-button")"
+                            onclick="toggleWishlist(@Model.Product.Id)">
+                        @(Model.IsInWishlist ? "♥ 已收藏" : "♡ 收藏")
+                    </button>
+                    <a asp-page="/Account/Wishlist" class="ghost-button">查看收藏</a>
+                </div>
+            }
+            else
+            {
+                <div class="alert error">这本书已下架，暂时不能购买。</div>
+                <a asp-page="/Products/Index" class="ghost-button">返回书店</a>
+            }
+        </article>
+    </section>
+
+    <section class="review-section">
+        <div class="section-heading">
+            <div>
+                <span class="section-kicker">Reviews</span>
+                <h2>读者评价</h2>
+            </div>
+            <div class="review-score">
+                <strong>@Model.ReviewSummary.AverageText</strong>
+                <span>@Model.ReviewSummary.Count 条评价</span>
+            </div>
+        </div>
+
+        @if (Model.CanReview)
+        {
+            <form method="post" asp-page-handler="Review" asp-route-id="@Model.Product.Id" class="review-form">
+                <div class="form-field">
+                    <label asp-for="Review.Rating"></label>
+                    <select class="editorial-select" asp-for="Review.Rating">
+                        <option value="5">5 星，很值得</option>
+                        <option value="4">4 星，推荐</option>
+                        <option value="3">3 星，还可以</option>
+                        <option value="2">2 星，一般</option>
+                        <option value="1">1 星，不太满意</option>
+                    </select>
+                </div>
+                <div class="form-field">
+                    <label asp-for="Review.Content"></label>
+                    <textarea class="editorial-textarea" asp-for="Review.Content" maxlength="500" placeholder="写下你的阅读感受"></textarea>
+                </div>
+                <button type="submit" class="primary-button">@(Model.UserReview is null ? "发布评价" : "更新评价")</button>
+            </form>
+        }
+        else if (User.Identity?.IsAuthenticated == true)
+        {
+            <p class="review-hint">购买后即可评价这本书。</p>
+        }
+        else
+        {
+            <p class="review-hint">
+                <a asp-page="/Account/Login" class="text-link">登录</a> 后，购买过的图书可以发布评价。
+            </p>
+        }
+
+        @if (Model.Reviews.Count == 0)
+        {
+            <p class="review-empty">还没有评价，第一条读后感正在等它的读者。</p>
+        }
+        else
+        {
+            <div class="review-list">
+                @foreach (var review in Model.Reviews)
+                {
+                    <article class="review-item">
+                        <div class="review-item-head">
+                            <strong>@(review.User?.DisplayName ?? review.User?.UserName ?? "读者")</strong>
+                            <span>@(new string('★', review.Rating))@(new string('☆', 5 - review.Rating))</span>
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(review.Content))
+                        {
+                            <p>@review.Content</p>
+                        }
+                        <small>@review.UpdatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</small>
+                    </article>
+                }
+            </div>
+        }
+    </section>
+
+    @if (Model.RelatedProducts.Count > 0)
+    {
+        <section class="product-rail">
+            <div class="section-heading">
+                <div>
+                    <span class="section-kicker">You May Like</span>
+                    <h2>同类推荐</h2>
+                </div>
+                <a asp-page="/Products/Index" asp-route-category="@Model.Product.Category" class="ghost-button">更多 @Model.Product.Category</a>
+            </div>
+            <div class="compact-book-grid">
+                @foreach (var product in Model.RelatedProducts)
+                {
+                    <a asp-page="/Products/Details" asp-route-id="@product.Id" class="compact-book">
+                        <img src="@product.CoverUrl" alt="@product.Title" loading="lazy" />
+                        <span>@product.Category</span>
+                        <strong>@product.Title</strong>
+                        <small>￥@product.Price.ToString("0.00")</small>
+                    </a>
+                }
+            </div>
+        </section>
+    }
+
+    @if (Model.RecentlyViewedProducts.Count > 0)
+    {
+        <section class="product-rail">
+            <div class="section-heading">
+                <div>
+                    <span class="section-kicker">History</span>
+                    <h2>最近浏览</h2>
+                </div>
+            </div>
+            <div class="compact-book-grid">
+                @foreach (var product in Model.RecentlyViewedProducts)
+                {
+                    <a asp-page="/Products/Details" asp-route-id="@product.Id" class="compact-book">
+                        <img src="@product.CoverUrl" alt="@product.Title" loading="lazy" />
+                        <span>@product.Author</span>
+                        <strong>@product.Title</strong>
+                        <small>￥@product.Price.ToString("0.00")</small>
+                    </a>
+                }
+            </div>
+        </section>
+    }
+}
+
+<script>
+async function toggleWishlist(productId) {
+    var btn = document.getElementById('wishlist-toggle');
+    var isWishlisted = btn.innerText.includes('已');
+    var url = '/Products/Details/' + productId + '?handler=ToggleWishlist';
+
+    try {
+        var response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+            }
+        });
+        if (response.ok) {
+            var newState = !isWishlisted;
+            btn.innerText = newState ? '♥ 已收藏' : '♡ 收藏';
+            btn.className = newState ? 'secondary-button' : 'ghost-button';
+        }
+    } catch (e) {
+        window.location.href = url;
+    }
+}
+</script>
+
+<style>
+.wishlist-row {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    margin-top: 0.75rem;
+}
+
+.product-rail {
+    margin-top: 3rem;
+}
+
+.review-section {
+    margin-top: 3rem;
+    display: grid;
+    gap: 1rem;
+}
+
+.review-score {
+    display: grid;
+    justify-items: end;
+    gap: 0.25rem;
+}
+
+.review-score strong {
+    color: var(--accent);
+    font-size: 1.8rem;
+    line-height: 1;
+}
+
+.review-score span,
+.review-hint,
+.review-empty {
+    color: var(--muted);
+}
+
+.review-form {
+    display: grid;
+    gap: 1rem;
+    padding: 1rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(255, 253, 249, 0.62);
+}
+
+.review-form button {
+    justify-self: start;
+}
+
+.review-list {
+    display: grid;
+    gap: 0.85rem;
+}
+
+.review-item {
+    display: grid;
+    gap: 0.45rem;
+    padding-bottom: 0.85rem;
+    border-bottom: 1px solid var(--line);
+}
+
+.review-item:last-child {
+    border-bottom: 0;
+}
+
+.review-item-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.review-item-head span {
+    color: var(--accent);
+    letter-spacing: 0;
+}
+
+.review-item p {
+    margin: 0;
+    color: var(--ink);
+    line-height: 1.8;
+}
+
+.review-item small {
+    color: var(--muted);
+}
+
+.product-rail h2 {
+    margin: 0.25rem 0 0;
+    font-size: 1.35rem;
+}
+
+.compact-book-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+}
+
+.compact-book {
+    display: grid;
+    gap: 0.45rem;
+    min-width: 0;
+}
+
+.compact-book img {
+    width: 100%;
+    aspect-ratio: 3 / 4;
+    object-fit: cover;
+    border-radius: 8px;
+    box-shadow: 0 14px 30px rgba(53, 24, 16, 0.12);
+}
+
+.compact-book span,
+.compact-book small {
+    color: var(--muted);
+    font-size: 0.85rem;
+}
+
+.compact-book strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+</style>

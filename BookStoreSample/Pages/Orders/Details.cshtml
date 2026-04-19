@@ -1,0 +1,327 @@
+@page "{id:int}"
+@model BookStoreSample.Pages.Orders.DetailsModel
+@{
+    ViewData["Title"] = "订单详情";
+}
+
+@if (Model.Order is null)
+{
+    <div class="alert error">未找到该订单。</div>
+}
+else
+{
+    <section class="tool-shell">
+        <article class="tool-row">
+            <span class="section-kicker">订单详情</span>
+            <h1 class="section-title">订单 #@Model.Order.Id</h1>
+            <div class="summary-list">
+                <div class="summary-line"><span>收货人</span><strong>@Model.Order.ReceiverName</strong></div>
+                <div class="summary-line"><span>联系电话</span><strong>@Model.Order.ReceiverPhone</strong></div>
+                <div class="summary-line"><span>配送地址</span><strong>@Model.Order.ShippingAddress</strong></div>
+                <div class="summary-line"><span>订单状态</span><strong class="status-badge">@Model.Order.Status</strong></div>
+                <div class="summary-line"><span>下单时间</span><strong>@Model.Order.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</strong></div>
+                @if (Model.Order.DiscountAmount > 0)
+                {
+                    <div class="summary-line"><span>优惠券</span><strong>@Model.Order.CouponName</strong></div>
+                    <div class="summary-line"><span>优惠金额</span><strong>-&yen;@Model.Order.DiscountAmount.ToString("0.00")</strong></div>
+                }
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(Model.Order.TrackingNumber) || Model.Order.ShippedAt is not null)
+            {
+                <div class="logistics-panel">
+                    <h3>物流信息</h3>
+                    <div class="summary-list">
+                        <div class="summary-line"><span>物流公司</span><strong>@(string.IsNullOrWhiteSpace(Model.Order.TrackingCompany) ? "未填写" : Model.Order.TrackingCompany)</strong></div>
+                        <div class="summary-line"><span>物流单号</span><strong>@(string.IsNullOrWhiteSpace(Model.Order.TrackingNumber) ? "未填写" : Model.Order.TrackingNumber)</strong></div>
+                        @if (Model.Order.ShippedAt is not null)
+                        {
+                            <div class="summary-line"><span>发货时间</span><strong>@Model.Order.ShippedAt.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</strong></div>
+                        }
+                    </div>
+                </div>
+            }
+
+            @if (Model.Order.RefundRequestedAt is not null)
+            {
+                <div class="refund-panel">
+                    <h3>退款申请</h3>
+                    <div class="summary-list">
+                        <div class="summary-line"><span>申请时间</span><strong>@Model.Order.RefundRequestedAt.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</strong></div>
+                        <div class="summary-line"><span>申请原因</span><strong>@Model.Order.RefundReason</strong></div>
+                        @if (Model.Order.RefundReviewedAt is null)
+                        {
+                            <div class="summary-line"><span>审核状态</span><strong class="status-badge">待审核</strong></div>
+                        }
+                        else
+                        {
+                            <div class="summary-line"><span>审核时间</span><strong>@Model.Order.RefundReviewedAt.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</strong></div>
+                            <div class="summary-line"><span>审核说明</span><strong>@(string.IsNullOrWhiteSpace(Model.Order.RefundReviewNote) ? "无" : Model.Order.RefundReviewNote)</strong></div>
+                        }
+                    </div>
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(Model.Message))
+            {
+                <p class="alert success">@Model.Message</p>
+            }
+
+            @if (Model.CanPay)
+            {
+                <div class="payment-panel">
+                    <div>
+                        <h3>待支付</h3>
+                        <p>确认收货信息和商品明细后，可使用模拟支付完成订单。</p>
+                    </div>
+                    <form method="post" asp-page-handler="Pay">
+                        <input type="hidden" name="id" value="@Model.Order.Id" />
+                        <button type="submit" class="primary-button">立即支付</button>
+                    </form>
+                </div>
+            }
+
+            @if (Model.CanConfirmReceipt)
+            {
+                <div class="payment-panel">
+                    <div>
+                        <h3>等待收货确认</h3>
+                        <p>收到图书并确认无误后，可以完成收货确认。</p>
+                    </div>
+                    <form method="post" asp-page-handler="ConfirmReceipt">
+                        <input type="hidden" name="id" value="@Model.Order.Id" />
+                        <button type="submit" class="primary-button">确认收货</button>
+                    </form>
+                </div>
+            }
+
+            @if (Model.CanRequestRefund)
+            {
+                <div class="refund-panel">
+                    <h3>申请退款</h3>
+                    <form method="post" asp-page-handler="RequestRefund" class="refund-form">
+                        <input type="hidden" name="id" value="@Model.Order.Id" />
+                        <div class="form-field">
+                            <label asp-for="Refund.Reason"></label>
+                            <textarea class="editorial-textarea" asp-for="Refund.Reason" placeholder="请说明退款原因"></textarea>
+                        </div>
+                        <button type="submit" class="danger-button">提交退款申请</button>
+                    </form>
+                </div>
+            }
+
+            @if (Model.CanReviewRefund)
+            {
+                <div class="refund-panel">
+                    <h3>审核退款</h3>
+                    <form method="post" class="refund-form">
+                        <input type="hidden" name="id" value="@Model.Order.Id" />
+                        <div class="form-field">
+                            <label asp-for="RefundReview.Note"></label>
+                            <textarea class="editorial-textarea" asp-for="RefundReview.Note" placeholder="通过可选填，拒绝时请填写原因"></textarea>
+                        </div>
+                        <div class="review-actions">
+                            <button type="submit" class="primary-button" asp-page-handler="ApproveRefund">通过退款</button>
+                            <button type="submit" class="danger-button" asp-page-handler="RejectRefund">拒绝退款</button>
+                        </div>
+                    </form>
+                </div>
+            }
+
+            @if (Model.IsAdmin)
+            {
+                var nextStatuses = OrderStatuses.GetNextStatuses(Model.Order.Status);
+                var manualStatuses = nextStatuses.Where(status => status != OrderStatuses.Shipped).ToArray();
+                @if (Model.CanShip)
+                {
+                    <div class="status-update-form">
+                        <h3>填写物流并发货</h3>
+                        <form method="post" asp-page-handler="Ship" class="ship-form">
+                            <input type="hidden" name="id" value="@Model.Order.Id" />
+                            <div class="form-field">
+                                <label asp-for="Shipping.TrackingCompany"></label>
+                                <input class="editorial-input" asp-for="Shipping.TrackingCompany" placeholder="例如 顺丰速运" />
+                            </div>
+                            <div class="form-field">
+                                <label asp-for="Shipping.TrackingNumber"></label>
+                                <input class="editorial-input" asp-for="Shipping.TrackingNumber" placeholder="请输入物流单号" />
+                            </div>
+                            <button type="submit" class="primary-button">确认发货</button>
+                        </form>
+                    </div>
+                }
+                @if (manualStatuses.Length > 0)
+                {
+                    <div class="status-update-form">
+                        <h3>更新订单状态</h3>
+                        <form method="post" asp-page-handler="UpdateStatus">
+                            <input type="hidden" name="id" value="@Model.Order.Id" />
+                            <select class="editorial-input" name="NewStatus">
+                                <option value="">选择新状态...</option>
+                                @foreach (var status in manualStatuses)
+                                {
+                                    <option value="@status">@status</option>
+                                }
+                            </select>
+                            <button type="submit" class="primary-button">更新状态</button>
+                        </form>
+                    </div>
+                }
+            }
+
+            @if (Model.CanCancel)
+            {
+                <form method="post" asp-page-handler="Cancel" class="cancel-form">
+                    <input type="hidden" name="id" value="@Model.Order.Id" />
+                    <button type="submit" class="danger-button">取消订单</button>
+                    <span class="cancel-hint">取消后会自动恢复对应图书库存。</span>
+                </form>
+            }
+
+            @if (Model.Order.StatusHistory.Count > 0)
+            {
+                <div class="status-history">
+                    <h3>状态变更记录</h3>
+                    <ul class="history-list">
+                        @foreach (var history in Model.Order.StatusHistory)
+                        {
+                            <li class="history-item">
+                                <span class="history-arrow">@((history.FromStatus ?? "创建") + " -> " + history.ToStatus)</span>
+                                <span class="history-time">@history.ChangedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            }
+        </article>
+        <aside class="tool-side">
+            <article class="summary-panel summary-panel-plain">
+                <span class="section-kicker">商品明细</span>
+                <div class="order-detail-items">
+                    @foreach (var item in Model.Order.Items)
+                    {
+                        <div class="order-detail-item">
+                            <img src="@item.CoverUrl" alt="@item.Title" class="order-detail-cover" loading="lazy" />
+                            <div class="order-detail-copy">
+                                <span class="order-detail-title">@item.Title</span>
+                                <span class="order-detail-meta">@item.Author x @item.Quantity</span>
+                            </div>
+                            <strong class="order-detail-price">&yen;@item.LineTotal.ToString("0.00")</strong>
+                        </div>
+                    }
+                </div>
+                @if (Model.Order.DiscountAmount > 0)
+                {
+                    <div class="summary-line">
+                        <span>优惠</span>
+                        <strong>-&yen;@Model.Order.DiscountAmount.ToString("0.00")</strong>
+                    </div>
+                }
+                <div class="summary-price">&yen;@Model.Order.TotalAmount.ToString("0.00")</div>
+            </article>
+        </aside>
+    </section>
+}
+
+<style>
+    .status-badge { color: var(--accent-strong); font-size: 1rem; }
+    .payment-panel,
+    .refund-panel {
+        display: grid;
+        gap: 0.75rem;
+        margin-top: 1.5rem;
+        padding: 1rem;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: rgba(255, 253, 249, 0.72);
+    }
+    .payment-panel {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+    .payment-panel h3,
+    .refund-panel h3 {
+        margin: 0;
+        font-size: 1rem;
+    }
+    .payment-panel p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.9rem;
+    }
+    .refund-form {
+        display: grid;
+        gap: 0.75rem;
+    }
+    .review-actions {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+    }
+    .logistics-panel {
+        margin-top: 1.5rem;
+        padding: 1rem;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: rgba(255, 253, 249, 0.62);
+    }
+    .logistics-panel h3 {
+        margin: 0 0 0.75rem;
+        font-size: 1rem;
+    }
+    .status-update-form { margin-top: 1.5rem; padding: 1rem 0; border-top: 1px solid var(--line); }
+    .status-update-form h3 { margin: 0 0 0.75rem; font-size: 0.9rem; color: var(--muted); }
+    .status-update-form form { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+    .status-update-form select { flex: 1 1 220px; }
+    .ship-form { align-items: end; }
+    .ship-form .form-field { flex: 1 1 220px; }
+    .cancel-form { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-top: 1rem; }
+    .cancel-hint { color: var(--muted); font-size: 0.9rem; }
+    .status-history { margin-top: 1.5rem; }
+    .status-history h3 { font-size: 0.9rem; color: var(--muted); margin-bottom: 0.5rem; }
+    .history-list { list-style: none; padding: 0; margin: 0; }
+    .history-item { display: flex; justify-content: space-between; gap: 1rem; padding: 0.4rem 0; border-bottom: 1px solid var(--paper-deep); font-size: 0.85rem; }
+    .history-item:last-child { border-bottom: none; }
+    .history-arrow { color: var(--ink); }
+    .history-time { color: var(--muted); white-space: nowrap; }
+    .order-detail-items { display: grid; gap: 1rem; }
+    .order-detail-item {
+        display: grid;
+        grid-template-columns: 58px minmax(0, 1fr);
+        gap: 0.75rem;
+        align-items: center;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid var(--line);
+    }
+    .order-detail-item:last-child { border-bottom: 0; }
+    .order-detail-cover {
+        width: 58px;
+        height: 78px;
+        object-fit: cover;
+        border-radius: 4px;
+        box-shadow: 0 10px 22px rgba(53, 24, 16, 0.12);
+    }
+    .order-detail-copy {
+        display: grid;
+        gap: 0.25rem;
+        min-width: 0;
+    }
+    .order-detail-title {
+        font-weight: 600;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .order-detail-meta {
+        color: var(--muted);
+        font-size: 0.88rem;
+    }
+    .order-detail-price {
+        grid-column: 2;
+        color: var(--accent);
+        justify-self: end;
+    }
+</style>

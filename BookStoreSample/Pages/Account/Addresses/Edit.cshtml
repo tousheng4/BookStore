@@ -1,0 +1,246 @@
+@page "{id:int?}"
+@model BookStoreSample.Pages.Account.Addresses.EditModel
+@{
+    ViewData["Title"] = Model.IsEditing ? "编辑地址" : "新增地址";
+}
+
+<div class="page-shell">
+    <h2>@(Model.IsEditing ? "编辑地址" : "新增地址")</h2>
+
+    <div class="address-edit-layout">
+        @* 左侧：表单 *@
+        <form method="post" class="address-form">
+            <input type="hidden" asp-for="Input.Id" />
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label asp-for="Input.ReceiverName"></label>
+                    <input class="editorial-input" asp-for="Input.ReceiverName" required maxlength="50" />
+                    <span asp-validation-for="Input.ReceiverName" class="field-error"></span>
+                </div>
+                <div class="form-group">
+                    <label asp-for="Input.ReceiverPhone"></label>
+                    <input class="editorial-input" asp-for="Input.ReceiverPhone" required maxlength="30" />
+                    <span asp-validation-for="Input.ReceiverPhone" class="field-error"></span>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label asp-for="Input.Province"></label>
+                    <input class="editorial-input" asp-for="Input.Province" required maxlength="30" placeholder="省/直辖市" id="province" />
+                    <span asp-validation-for="Input.Province" class="field-error"></span>
+                </div>
+                <div class="form-group">
+                    <label asp-for="Input.City"></label>
+                    <input class="editorial-input" asp-for="Input.City" required maxlength="30" placeholder="市/区" id="city" />
+                    <span asp-validation-for="Input.City" class="field-error"></span>
+                </div>
+                <div class="form-group">
+                    <label asp-for="Input.District"></label>
+                    <input class="editorial-input" asp-for="Input.District" required maxlength="30" placeholder="区/县" id="district" />
+                    <span asp-validation-for="Input.District" class="field-error"></span>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="Input.StreetAddress"></label>
+                <textarea class="editorial-textarea" asp-for="Input.StreetAddress" required maxlength="200" rows="2"
+                    placeholder="详细地址（街道、门牌号等）" id="street"></textarea>
+                <span asp-validation-for="Input.StreetAddress" class="field-error"></span>
+            </div>
+
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" asp-for="Input.IsDefault" />
+                    设为默认收货地址
+                </label>
+            </div>
+
+            @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+            {
+                <p class="alert error">@Model.ErrorMessage</p>
+            }
+
+            <div class="form-actions">
+                <button type="submit" class="primary-button">保存地址</button>
+                <a asp-page="Index" class="ghost-button">取消</a>
+            </div>
+        </form>
+
+        @* 右侧：地图 *@
+        <div class="address-map-wrap">
+            <div id="amap-container"></div>
+            <p class="map-hint" id="map-hint">在右侧地图查看地址位置</p>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @if (!string.IsNullOrWhiteSpace(Model.AmapSecurityJsCode))
+    {
+        <script>
+            window._AMapSecurityConfig = {
+                securityJsCode: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.AmapSecurityJsCode))
+            };
+        </script>
+    }
+    <script src="https://webapi.amap.com/maps?v=2.0&key=@Uri.EscapeDataString(Model.AmapWebApiKey)&plugin=AMap.Geocoder"></script>
+    <script>
+        window.addEventListener('DOMContentLoaded', function () {
+            var province = document.getElementById('province');
+            var city = document.getElementById('city');
+            var district = document.getElementById('district');
+            var street = document.getElementById('street');
+            var mapHint = document.getElementById('map-hint');
+            var geocoder = null;
+            var requestId = 0;
+            var geocodeTimer = null;
+            var isComposing = false;
+
+            if (!window.AMap) {
+                mapHint.textContent = '高德地图脚本加载失败，请检查 Web 端 Key 和网络连接';
+                return;
+            }
+
+            var map = new AMap.Map('amap-container', {
+                zoom: 12,
+                center: [116.397428, 39.90923],
+                viewMode: '2D'
+            });
+
+            var marker = new AMap.Marker({ map: map });
+            var pluginTimer = setTimeout(function () {
+                if (!geocoder) {
+                    mapHint.textContent = '高德地理编码插件加载超时，请检查 Web 端 Key 配置';
+                }
+            }, 8000);
+
+            AMap.plugin('AMap.Geocoder', function () {
+                clearTimeout(pluginTimer);
+                geocoder = new AMap.Geocoder({ city: '全国' });
+                updateMap();
+            });
+
+            function getFullAddress() {
+                var p = province.value.trim();
+                var c = city.value.trim();
+                var d = district.value.trim();
+                var s = street.value.trim();
+                return [p, c, d, s].filter(Boolean).join('');
+            }
+
+            function updateMap() {
+                var addr = getFullAddress();
+                if (!addr) {
+                    marker.setMap(null);
+                    mapHint.textContent = '请输入地址后查看地图位置';
+                    return;
+                }
+
+                if (!geocoder) {
+                    mapHint.textContent = '地图定位服务加载中...';
+                    return;
+                }
+
+                var currentRequestId = ++requestId;
+                clearTimeout(geocodeTimer);
+
+                mapHint.textContent = '正在定位...';
+
+                geocodeTimer = setTimeout(function () {
+                    if (currentRequestId !== requestId) return;
+
+                    marker.setMap(null);
+                    mapHint.textContent = '定位超时，请检查高德 Web 端 Key 的安全配置或稍后重试';
+                }, 8000);
+
+                geocoder.getLocation(addr, function (status, result) {
+                    if (currentRequestId !== requestId) return;
+                    clearTimeout(geocodeTimer);
+
+                    if (status === 'complete' && result.geocodes && result.geocodes.length > 0) {
+                        var geocode = result.geocodes[0];
+                        var position = [geocode.location.lng, geocode.location.lat];
+                        marker.setMap(map);
+                        map.setZoomAndCenter(15, position);
+                        marker.setPosition(position);
+                        mapHint.textContent = geocode.formattedAddress || addr;
+                        return;
+                    }
+
+                    marker.setMap(null);
+                    mapHint.textContent = (result && result.info) ? result.info : '未找到该地址';
+                });
+            }
+
+            var debounceTimer = null;
+            function debounce(fn, delay) {
+                return function () {
+                    clearTimeout(debounceTimer);
+                    debounceTimer = setTimeout(fn, delay);
+                };
+            }
+
+            var debouncedUpdate = debounce(updateMap, 600);
+
+            [province, city, district, street].forEach(function (el) {
+                el.addEventListener('compositionstart', function () {
+                    isComposing = true;
+                });
+                el.addEventListener('compositionend', function () {
+                    isComposing = false;
+                    debouncedUpdate();
+                });
+                el.addEventListener('input', function () {
+                    if (!isComposing) {
+                        debouncedUpdate();
+                    }
+                });
+                el.addEventListener('change', debouncedUpdate);
+            });
+
+            updateMap();
+        });
+    </script>
+}
+
+<style>
+    .address-edit-layout {
+        display: grid;
+        grid-template-columns: 420px 1fr;
+        gap: 2rem;
+        align-items: start;
+        margin-top: 1rem;
+    }
+
+    @@media (max-width: 900px) {
+        .address-edit-layout {
+            grid-template-columns: 1fr;
+        }
+        #amap-container { height: 300px; }
+    }
+
+    .address-form { max-width: 420px; }
+    .form-row { display: flex; gap: 1rem; }
+    .form-row .form-group { flex: 1; }
+    .form-group { margin-bottom: 1rem; }
+    .form-group label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.3rem; }
+    .checkbox-label { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; }
+    .form-actions { display: flex; gap: 0.75rem; margin-top: 1rem; }
+    .field-error { color: var(--accent); font-size: 0.8rem; }
+
+    #amap-container {
+        width: 100%;
+        height: 420px;
+        border-radius: 6px;
+        border: 1px solid var(--paper-deep);
+    }
+
+    .map-hint {
+        margin: 0.5rem 0 0;
+        font-size: 0.8rem;
+        color: var(--muted);
+        text-align: center;
+    }
+</style>

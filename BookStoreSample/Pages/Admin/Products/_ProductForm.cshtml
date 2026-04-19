@@ -1,0 +1,106 @@
+@model BookStoreSample.Models.BookProduct
+@Html.AntiForgeryToken()
+
+<div class="form-grid">
+    <div class="form-field">
+        <label asp-for="Title">书名</label>
+        <input class="editorial-input" asp-for="Title" />
+    </div>
+    <div class="form-field">
+        <label asp-for="Author">作者</label>
+        <input class="editorial-input" asp-for="Author" />
+    </div>
+    <div class="form-field">
+        <label asp-for="Publisher">出版社</label>
+        <input class="editorial-input" asp-for="Publisher" />
+    </div>
+    <div class="form-field">
+        <label asp-for="Category">分类</label>
+        <input class="editorial-input" asp-for="Category" />
+    </div>
+    <div class="form-field">
+        <label asp-for="Price">价格</label>
+        <input class="editorial-input" asp-for="Price" type="number" step="0.01" />
+    </div>
+    <div class="form-field">
+        <label asp-for="Stock">库存</label>
+        <input class="editorial-input" asp-for="Stock" type="number" />
+    </div>
+    <div class="form-field status-field">
+        <label asp-for="IsActive">销售状态</label>
+        <label class="switch-row">
+            <input asp-for="IsActive" type="checkbox" />
+            <span>上架销售</span>
+        </label>
+    </div>
+</div>
+
+<div class="form-field">
+    <label>上传封面图片</label>
+    <div class="cover-upload-row">
+        <input type="file" id="cover-file" accept="image/*" class="file-input" />
+        <button type="button" class="ghost-button" onclick="uploadCover()">上传图片</button>
+        <span id="upload-status" class="upload-status"></span>
+    </div>
+    <div id="cover-preview-wrap" class="cover-preview-wrap" style="display:none;">
+        <img id="cover-preview" src="" alt="预览" />
+    </div>
+</div>
+
+<div class="form-field">
+    <label asp-for="CoverUrl">封面地址</label>
+    <input class="editorial-input" id="CoverUrl" asp-for="CoverUrl" />
+</div>
+
+<div class="form-field">
+    <label asp-for="Description">图书描述</label>
+    <textarea class="editorial-textarea" asp-for="Description"></textarea>
+</div>
+
+<script>
+async function uploadCover() {
+    var fileInput = document.getElementById('cover-file');
+    var file = fileInput.files[0];
+    if (!file) {
+        document.getElementById('upload-status').innerText = '请先选择图片';
+        return;
+    }
+
+    var formData = new FormData();
+    formData.append('file', file);
+
+    var token = document.querySelector('input[name="__RequestVerificationToken"]')?.value || '';
+
+    try {
+        document.getElementById('upload-status').innerText = '上传中...';
+        var response = await fetch('/Admin/Products/Index?handler=UploadCover', {
+            method: 'POST',
+            headers: { 'RequestVerificationToken': token },
+            body: formData
+        });
+        var data = await response.json();
+        if (data.url) {
+            document.getElementById('CoverUrl').value = data.url;
+            var preview = document.getElementById('cover-preview');
+            preview.src = data.url;
+            document.getElementById('cover-preview-wrap').style.display = 'block';
+            document.getElementById('upload-status').innerText = '上传成功';
+        } else {
+            document.getElementById('upload-status').innerText = data.error || '上传失败';
+        }
+    } catch (e) {
+        document.getElementById('upload-status').innerText = '上传失败';
+    }
+}
+</script>
+
+<style>
+.cover-upload-row { display: flex; gap: 0.5rem; align-items: center; margin-top: 0.3rem; }
+.file-input { font-size: 0.9rem; }
+.upload-status { font-size: 0.85rem; color: var(--muted); }
+.cover-preview-wrap { margin-top: 0.5rem; }
+.cover-preview { max-width: 120px; max-height: 160px; border-radius: 3px; border: 1px solid var(--paper-deep); }
+.status-field { justify-content: end; }
+.switch-row { display: inline-flex; align-items: center; gap: 0.45rem; color: var(--muted); }
+.switch-row input { accent-color: var(--accent); }
+</style>

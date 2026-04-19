@@ -1,0 +1,107 @@
+@page
+@model BookStoreSample.Pages.Admin.Products.IndexModel
+@{
+    ViewData["Title"] = "后台商品管理";
+}
+
+<section class="admin-panel admin-panel-plain">
+    <div class="section-heading">
+        <div>
+            <span class="section-kicker">商品管理</span>
+            <h1 class="section-title">商品管理</h1>
+        </div>
+        <div class="admin-actions">
+            <a class="ghost-button" asp-page="/Admin/Index">后台看板</a>
+            <a class="primary-button" asp-page="/Admin/Products/Create">新增图书</a>
+        </div>
+    </div>
+    <table class="admin-table">
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>书名</th>
+            <th>作者</th>
+            <th>分类</th>
+            <th>价格</th>
+            <th>库存</th>
+            <th>状态</th>
+            <th>操作</th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach (var product in Model.Products)
+        {
+            <tr>
+                <td>@product.Id</td>
+                <td>@product.Title</td>
+                <td>@product.Author</td>
+                <td>@product.Category</td>
+                <td>￥@product.Price.ToString("0.00")</td>
+                <td>
+                    @if (product.Stock <= 5)
+                    {
+                        <span class="low-stock-pill">库存 @product.Stock</span>
+                    }
+                    else
+                    {
+                        <span>@product.Stock</span>
+                    }
+                </td>
+                <td>
+                    <span class="status-pill @(product.IsActive ? "status-active" : "status-inactive")">
+                        @(product.IsActive ? "上架中" : "已下架")
+                    </span>
+                </td>
+                <td class="inline-actions">
+                    <a class="ghost-button" asp-page="/Admin/Products/Edit" asp-route-id="@product.Id">编辑</a>
+                    <form method="post" asp-page-handler="ToggleActive" asp-route-id="@product.Id" class="inline-form">
+                        <button type="submit" class="ghost-button">@(product.IsActive ? "下架" : "上架")</button>
+                    </form>
+                    <a class="danger-button" asp-page="/Admin/Products/Delete" asp-route-id="@product.Id">删除</a>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</section>
+
+<style>
+    .admin-actions {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+
+    .low-stock-pill {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 8px;
+        padding: 0.25rem 0.55rem;
+        background: rgba(141, 43, 39, 0.1);
+        color: var(--accent-strong);
+        font-weight: 600;
+    }
+
+    .inline-form {
+        margin: 0;
+    }
+
+    .status-pill {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 8px;
+        padding: 0.25rem 0.55rem;
+        font-weight: 600;
+    }
+
+    .status-active {
+        background: rgba(37, 72, 63, 0.1);
+        color: var(--forest);
+    }
+
+    .status-inactive {
+        background: rgba(99, 87, 77, 0.12);
+        color: var(--muted);
+    }
+</style>

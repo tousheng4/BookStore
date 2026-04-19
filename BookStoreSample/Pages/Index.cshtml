@@ -1,0 +1,126 @@
+﻿@page
+@model BookStoreSample.Pages.IndexModel
+@{
+    ViewData["Title"] = "首页";
+}
+
+<section class="landing-hero">
+    <div class="landing-hero-image" aria-hidden="true"></div>
+    <div class="landing-hero-overlay"></div>
+    <div class="landing-hero-copy">
+        <div class="landing-brand">线上书房</div>
+        <h1 class="landing-title">在安静的书页里，重新找到下一本想带走的书。</h1>
+        <p class="landing-copy">精选图书、清晰目录与顺滑下单流程，让浏览、选购和订单追踪回到简单自然的节奏。</p>
+        <div class="landing-actions">
+            <a class="primary-button" asp-page="/Products/Index">进入书店</a>
+            <a class="ghost-button hero-ghost" asp-page="/Account/Register">注册账户</a>
+        </div>
+    </div>
+</section>
+
+<section class="home-section">
+    <div class="section-heading">
+        <div>
+            <span class="section-kicker">精选图书</span>
+            <h2 class="section-title">本周推荐</h2>
+        </div>
+        <a class="ghost-link" asp-page="/Products/Index">浏览完整目录</a>
+    </div>
+    <div class="book-grid">
+        @foreach (var book in Model.FeaturedProducts)
+        {
+            <article class="book-tile">
+                <div class="cover-frame">
+                    <img src="@book.CoverUrl" alt="@book.Title" />
+                </div>
+                <div class="book-tile-body">
+                    <p class="book-tile-meta">@book.Category</p>
+                    <h3 class="book-tile-title">@book.Title</h3>
+                    <p class="book-tile-copy">@book.Author · @book.Publisher</p>
+                    <div class="book-tile-footer">
+                        <span class="product-price">￥@book.Price</span>
+                        <a class="text-link" asp-page="/Products/Details" asp-route-id="@book.Id">查看详情</a>
+                    </div>
+                </div>
+            </article>
+        }
+    </div>
+</section>
+
+<section class="home-section home-section-quiet">
+    <div class="section-heading">
+        <div>
+            <span class="section-kicker">分类浏览</span>
+            <h2 class="section-title">从分类开始</h2>
+        </div>
+    </div>
+    <div class="category-rail">
+        @foreach (var category in Model.Categories)
+        {
+            <a class="category-link" asp-page="/Products/Index" asp-route-keyword="@category.Category">
+                <span>@category.Category</span>
+                <small>@category.Count 本</small>
+            </a>
+        }
+    </div>
+</section>
+
+@if (Model.BestSellers.Count > 0)
+{
+    <section class="home-section">
+        <div class="section-heading">
+            <div>
+                <span class="section-kicker">人气之选</span>
+                <h2 class="section-title">畅销榜单</h2>
+            </div>
+            <a class="ghost-link" asp-page="/Products/Index" asp-route-sortBy="sales">查看全部</a>
+        </div>
+        <div class="book-grid book-grid-compact">
+            @foreach (var book in Model.BestSellers)
+            {
+                <article class="book-tile book-tile-compact">
+                    <a asp-page="/Products/Details" asp-route-id="@book.Id" class="cover-frame">
+                        <img src="@book.CoverUrl" alt="@book.Title" />
+                    </a>
+                    <div class="book-tile-body">
+                        <p class="book-tile-meta">@book.Category</p>
+                        <h3 class="book-tile-title">@book.Title</h3>
+                        <div class="book-tile-footer">
+                            <span class="product-price">￥@book.Price</span>
+                        </div>
+                    </div>
+                </article>
+            }
+        </div>
+    </section>
+}
+
+@if (Model.NewArrivals.Count > 0)
+{
+    <section class="home-section">
+        <div class="section-heading">
+            <div>
+                <span class="section-kicker">新书上架</span>
+                <h2 class="section-title">最近添加</h2>
+            </div>
+            <a class="ghost-link" asp-page="/Products/Index">查看全部</a>
+        </div>
+        <div class="book-grid book-grid-compact">
+            @foreach (var book in Model.NewArrivals)
+            {
+                <article class="book-tile book-tile-compact">
+                    <a asp-page="/Products/Details" asp-route-id="@book.Id" class="cover-frame">
+                        <img src="@book.CoverUrl" alt="@book.Title" />
+                    </a>
+                    <div class="book-tile-body">
+                        <p class="book-tile-meta">@book.Category</p>
+                        <h3 class="book-tile-title">@book.Title</h3>
+                        <div class="book-tile-footer">
+                            <span class="product-price">￥@book.Price</span>
+                        </div>
+                    </div>
+                </article>
+            }
+        </div>
+    </section>
+}

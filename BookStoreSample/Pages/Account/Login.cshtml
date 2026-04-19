@@ -1,0 +1,46 @@
+﻿@page
+@model BookStoreSample.Pages.Account.LoginModel
+@{
+    ViewData["Title"] = "登录";
+}
+
+<section class="auth-login-shell">
+    <article class="auth-login-stage">
+        <div class="auth-login-image" aria-hidden="true"></div>
+        <div class="auth-login-overlay"></div>
+        <div class="auth-login-copy">
+            <span class="section-kicker auth-kicker-light">线上书房</span>
+            <div class="auth-login-brand">线上书房</div>
+            <h1 class="auth-login-title">登录后继续选书、下单和查看订单。</h1>
+            <p class="auth-copy light">你的购物袋、收货信息和订单记录都会保留在账户里，下一次继续浏览时也能立刻接上。</p>
+        </div>
+    </article>
+
+    <article class="auth-login-panel">
+        <div class="auth-login-panel-head">
+            <span class="section-kicker">账户登录</span>
+            <h2 class="auth-login-heading">欢迎回来</h2>
+            <p class="auth-login-subtitle">输入用户名和密码，继续你的书单与订单流程。</p>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(Model.Message))
+        {
+            <div class="alert error">@Model.Message</div>
+        }
+
+        <form method="post" class="auth-form-stack">
+            <div class="form-field auth-field">
+                <label asp-for="Input.UserName"></label>
+                <input class="editorial-input auth-input" asp-for="Input.UserName" autocomplete="username" />
+            </div>
+            <div class="form-field auth-field">
+                <label asp-for="Input.Password"></label>
+                <input class="editorial-input auth-input" asp-for="Input.Password" type="password" autocomplete="current-password" />
+            </div>
+            <div class="auth-login-actions">
+                <button class="primary-button" type="submit">登录</button>
+                <a class="ghost-button" asp-page="/Account/Register">创建账户</a>
+            </div>
+        </form>
+    </article>
+</section>

@@ -1,0 +1,56 @@
+﻿@page
+@model BookStoreSample.Pages.Account.RegisterModel
+@{
+    ViewData["Title"] = "注册";
+}
+
+<section class="auth-login-shell auth-register-shell">
+    <article class="auth-login-stage auth-register-stage">
+        <div class="auth-login-image" aria-hidden="true"></div>
+        <div class="auth-login-overlay"></div>
+        <div class="auth-login-copy">
+            <span class="section-kicker auth-kicker-light">线上书房</span>
+            <div class="auth-login-brand">线上书房</div>
+            <h1 class="auth-login-title">创建账户后，把书单、购物袋和订单都留在同一个地方。</h1>
+            <p class="auth-copy light">完成注册后就能保存选书记录、管理购物袋，并在下单后随时查看订单状态。</p>
+        </div>
+    </article>
+
+    <article class="auth-login-panel auth-register-panel">
+        <div class="auth-login-panel-head">
+            <span class="section-kicker">创建账户</span>
+            <h2 class="auth-login-heading">开始建立你的书房</h2>
+            <p class="auth-login-subtitle">填写基础信息后即可完成注册，之后登录、加购和订单追踪都会自动关联到账户。</p>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(Model.Message))
+        {
+            <div class="alert @Model.MessageType">@Model.Message</div>
+        }
+
+        <form method="post" class="auth-form-stack auth-register-form">
+            <div class="form-field auth-field">
+                <label asp-for="Input.UserName"></label>
+                <input class="editorial-input auth-input" asp-for="Input.UserName" autocomplete="username" />
+            </div>
+            <div class="form-field auth-field">
+                <label asp-for="Input.DisplayName"></label>
+                <input class="editorial-input auth-input" asp-for="Input.DisplayName" autocomplete="nickname" />
+            </div>
+            <div class="form-grid auth-register-grid">
+                <div class="form-field auth-field">
+                    <label asp-for="Input.Password"></label>
+                    <input class="editorial-input auth-input" asp-for="Input.Password" type="password" autocomplete="new-password" />
+                </div>
+                <div class="form-field auth-field">
+                    <label asp-for="Input.ConfirmPassword"></label>
+                    <input class="editorial-input auth-input" asp-for="Input.ConfirmPassword" type="password" autocomplete="new-password" />
+                </div>
+            </div>
+            <div class="auth-login-actions">
+                <button class="primary-button" type="submit">完成注册</button>
+                <a class="ghost-button" asp-page="/Account/Login">去登录</a>
+            </div>
+        </form>
+    </article>
+</section>

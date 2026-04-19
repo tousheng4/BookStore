@@ -1,0 +1,224 @@
+@page
+@model BookStoreSample.Pages.Admin.Reviews.IndexModel
+@{
+    ViewData["Title"] = "评价管理";
+}
+
+<section class="review-admin">
+    <div class="section-heading">
+        <div>
+            <span class="section-kicker">Reviews</span>
+            <h1 class="section-title">评价管理</h1>
+        </div>
+        <div class="review-admin-actions">
+            <a class="ghost-button" asp-page="/Admin/Index">后台看板</a>
+            <a class="secondary-button" asp-page="/Products/Index" asp-route-sortBy="rating" asp-route-reviewedOnly="true">查看高分图书</a>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(Model.Message))
+    {
+        <div class="alert success">@Model.Message</div>
+    }
+
+    <div class="review-admin-metrics">
+        <article>
+            <span>评价数量</span>
+            <strong>@Model.TotalCount</strong>
+        </article>
+        <article>
+            <span>平均评分</span>
+            <strong>@(Model.TotalCount == 0 ? "暂无" : Model.AverageRating.ToString("0.0"))</strong>
+        </article>
+        <article class="metric-warn">
+            <span>低分评价</span>
+            <strong>@Model.LowRatingCount</strong>
+        </article>
+    </div>
+
+    <form method="get" class="review-filter-form">
+        <input class="filter-input" asp-for="Keyword" placeholder="搜索书名、用户或评价内容" />
+        <select class="filter-input" asp-for="Rating">
+            <option value="">全部评分</option>
+            <option value="5">5 星</option>
+            <option value="4">4 星</option>
+            <option value="3">3 星</option>
+            <option value="2">2 星</option>
+            <option value="1">1 星</option>
+        </select>
+        <button type="submit" class="primary-button">筛选</button>
+        <a asp-page="/Admin/Reviews/Index" class="ghost-button">重置</a>
+    </form>
+
+    @if (Model.Reviews.Count == 0)
+    {
+        <div class="empty-state">没有找到评价。</div>
+    }
+    else
+    {
+        <div class="review-admin-list">
+            @foreach (var review in Model.Reviews)
+            {
+                <article class="review-admin-row">
+                    <a asp-page="/Products/Details" asp-route-id="@review.ProductId" class="review-book">
+                        @if (!string.IsNullOrWhiteSpace(review.Product?.CoverUrl))
+                        {
+                            <img src="@review.Product.CoverUrl" alt="@review.Product.Title" loading="lazy" />
+                        }
+                        <div>
+                            <strong>@(review.Product?.Title ?? "未知图书")</strong>
+                            <span>@(review.Product?.Author ?? "未知作者")</span>
+                        </div>
+                    </a>
+                    <div class="review-content">
+                        <div class="review-line">
+                            <strong>@(review.User?.DisplayName ?? review.User?.UserName ?? "读者")</strong>
+                            <span class="rating-stars">@(new string('★', review.Rating))@(new string('☆', 5 - review.Rating))</span>
+                        </div>
+                        <p>@(string.IsNullOrWhiteSpace(review.Content) ? "没有填写文字评价。" : review.Content)</p>
+                        <small>@review.UpdatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</small>
+                    </div>
+                    <form method="post" asp-page-handler="Delete" asp-route-id="@review.Id" class="review-delete-form">
+                        <input type="hidden" name="Keyword" value="@Model.Keyword" />
+                        <input type="hidden" name="Rating" value="@Model.Rating" />
+                        <button type="submit" class="danger-button">删除</button>
+                    </form>
+                </article>
+            }
+        </div>
+    }
+</section>
+
+<style>
+    .review-admin {
+        display: grid;
+        gap: 1.25rem;
+    }
+
+    .review-admin-actions,
+    .review-filter-form {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+
+    .review-filter-form {
+        justify-content: flex-start;
+        align-items: center;
+    }
+
+    .review-filter-form .filter-input:first-child {
+        min-width: min(420px, 100%);
+    }
+
+    .review-admin-metrics {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 1rem;
+    }
+
+    .review-admin-metrics article {
+        display: grid;
+        gap: 0.45rem;
+        padding: 1rem;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: rgba(255, 253, 249, 0.66);
+    }
+
+    .review-admin-metrics span {
+        color: var(--muted);
+        font-size: 0.9rem;
+    }
+
+    .review-admin-metrics strong {
+        font-size: 1.8rem;
+        line-height: 1;
+    }
+
+    .metric-warn strong {
+        color: var(--accent);
+    }
+
+    .review-admin-list {
+        display: grid;
+        gap: 1rem;
+    }
+
+    .review-admin-row {
+        display: grid;
+        grid-template-columns: minmax(240px, 320px) minmax(0, 1fr) auto;
+        gap: 1rem;
+        align-items: center;
+        padding: 1rem 0;
+        border-bottom: 1px solid var(--line);
+    }
+
+    .review-book {
+        display: grid;
+        grid-template-columns: 54px minmax(0, 1fr);
+        gap: 0.75rem;
+        align-items: center;
+        min-width: 0;
+    }
+
+    .review-book img {
+        width: 54px;
+        height: 72px;
+        object-fit: cover;
+        border-radius: 4px;
+    }
+
+    .review-book div,
+    .review-content {
+        display: grid;
+        gap: 0.25rem;
+        min-width: 0;
+    }
+
+    .review-book strong {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .review-book span,
+    .review-content small {
+        color: var(--muted);
+        font-size: 0.88rem;
+    }
+
+    .review-line {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .rating-stars {
+        color: var(--accent);
+        letter-spacing: 0;
+    }
+
+    .review-content p {
+        margin: 0;
+        line-height: 1.7;
+    }
+
+    .review-delete-form {
+        margin: 0;
+    }
+
+    @@media (max-width: 900px) {
+        .review-admin-row {
+            grid-template-columns: 1fr;
+            align-items: start;
+        }
+
+        .review-delete-form {
+            justify-self: start;
+        }
+    }
+</style>

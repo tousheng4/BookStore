@@ -1,0 +1,135 @@
+@page
+@model BookStoreSample.Pages.Account.NotificationsModel
+@{
+    ViewData["Title"] = "通知中心";
+}
+
+<section class="tool-main">
+    <div class="section-heading">
+        <div>
+            <span class="section-kicker">Notifications</span>
+            <h1 class="section-title">通知中心</h1>
+        </div>
+        @if (Model.UnreadCount > 0)
+        {
+            <form method="post" asp-page-handler="ReadAll">
+                <button type="submit" class="ghost-button">全部标为已读</button>
+            </form>
+        }
+    </div>
+
+    @if (Model.Notifications.Count == 0)
+    {
+        <div class="tool-row empty-state">暂时没有通知。</div>
+    }
+    else
+    {
+        <div class="notification-list">
+            @foreach (var notification in Model.Notifications)
+            {
+                var isUnread = notification.ReadAt is null;
+                <article class="notification-item @(isUnread ? "is-unread" : string.Empty)">
+                    <div class="notification-copy">
+                        <div class="notification-title-row">
+                            <strong>@notification.Title</strong>
+                            @if (isUnread)
+                            {
+                                <span class="unread-dot">未读</span>
+                            }
+                        </div>
+                        <p>@notification.Message</p>
+                        <span>@notification.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
+                    </div>
+                    <div class="notification-actions">
+                        @if (!string.IsNullOrWhiteSpace(notification.LinkUrl))
+                        {
+                            <a class="secondary-button" href="@notification.LinkUrl">查看</a>
+                        }
+                        @if (isUnread)
+                        {
+                            <form method="post" asp-page-handler="Read">
+                                <input type="hidden" name="id" value="@notification.Id" />
+                                <button type="submit" class="ghost-button">标为已读</button>
+                            </form>
+                        }
+                    </div>
+                </article>
+            }
+        </div>
+    }
+</section>
+
+<style>
+    .notification-list {
+        display: grid;
+        gap: 0.75rem;
+    }
+
+    .notification-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 1rem;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: rgba(255, 253, 249, 0.66);
+    }
+
+    .notification-item.is-unread {
+        border-color: var(--accent);
+    }
+
+    .notification-copy {
+        display: grid;
+        gap: 0.25rem;
+        min-width: 0;
+    }
+
+    .notification-title-row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    .notification-copy p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.9rem;
+    }
+
+    .notification-copy span {
+        color: var(--muted);
+        font-size: 0.82rem;
+    }
+
+    .unread-dot {
+        background: var(--accent);
+        color: #fff !important;
+        border-radius: 8px;
+        padding: 0.1rem 0.45rem;
+    }
+
+    .notification-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+
+    .notification-actions form {
+        margin: 0;
+    }
+
+    @@media (max-width: 640px) {
+        .notification-item {
+            align-items: flex-start;
+            flex-direction: column;
+        }
+        .notification-actions {
+            justify-content: flex-start;
+        }
+    }
+</style>

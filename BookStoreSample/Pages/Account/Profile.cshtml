@@ -1,0 +1,71 @@
+@page
+@model BookStoreSample.Pages.Account.ProfileModel
+@{
+    ViewData["Title"] = "编辑资料";
+}
+
+<section class="profile-shell">
+    <div class="section-heading">
+        <div>
+            <span class="section-kicker">Profile</span>
+            <h1 class="section-title">编辑资料</h1>
+        </div>
+        <a asp-page="/Account/Index" class="ghost-button">返回个人中心</a>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(Model.Message))
+    {
+        <div class="alert @Model.MessageType">@Model.Message</div>
+    }
+
+    <form method="post" class="profile-form">
+        <div class="form-field">
+            <label asp-for="Input.DisplayName"></label>
+            <input class="editorial-input" asp-for="Input.DisplayName" maxlength="40" />
+            <span asp-validation-for="Input.DisplayName" class="validation-message"></span>
+        </div>
+        <div class="form-field">
+            <label asp-for="Input.Email"></label>
+            <input class="editorial-input" asp-for="Input.Email" maxlength="120" />
+            <span asp-validation-for="Input.Email" class="validation-message"></span>
+        </div>
+        <div class="form-field">
+            <label asp-for="Input.PhoneNumber"></label>
+            <input class="editorial-input" asp-for="Input.PhoneNumber" maxlength="30" />
+            <span asp-validation-for="Input.PhoneNumber" class="validation-message"></span>
+        </div>
+        <div class="profile-actions">
+            <button type="submit" class="primary-button">保存资料</button>
+            <a asp-page="/Account/Index" class="ghost-button">取消</a>
+        </div>
+    </form>
+</section>
+
+<style>
+    .profile-shell {
+        display: grid;
+        gap: 1.25rem;
+        max-width: 760px;
+    }
+
+    .profile-form {
+        display: grid;
+        gap: 1rem;
+        padding: 1.25rem;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: rgba(255, 253, 249, 0.62);
+    }
+
+    .profile-actions {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    .validation-message {
+        color: var(--accent);
+        font-size: 0.85rem;
+    }
+</style>

@@ -1,0 +1,82 @@
+@page
+@model BookStoreSample.Pages.Account.CouponsModel
+@{
+    ViewData["Title"] = "我的优惠券";
+}
+
+<section class="tool-main">
+    <div class="section-heading">
+        <div>
+            <span class="section-kicker">Coupons</span>
+            <h1 class="section-title">我的优惠券</h1>
+        </div>
+        <a class="ghost-button" asp-page="/Cart/Checkout">去结算</a>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(Model.Message))
+    {
+        <p class="alert success">@Model.Message</p>
+    }
+
+    @if (Model.Coupons.Count == 0)
+    {
+        <div class="tool-row empty-state">当前没有可领取的优惠券。</div>
+    }
+    else
+    {
+        <div class="coupon-grid">
+            @foreach (var item in Model.Coupons)
+            {
+                var coupon = item.Coupon;
+                <article class="coupon-card">
+                    <div>
+                        <span class="coupon-code">@coupon.Code</span>
+                        <h2>@coupon.Name</h2>
+                        <p>满 &yen;@coupon.MinimumAmount.ToString("0.00") 可用</p>
+                        <span class="coupon-date">有效期至 @coupon.EndsAt.ToLocalTime().ToString("yyyy-MM-dd")</span>
+                    </div>
+                    <div class="coupon-side">
+                        <strong>&yen;@coupon.DiscountAmount.ToString("0.00")</strong>
+                        @if (item.IsClaimed)
+                        {
+                            <span class="status-pill">已领取</span>
+                        }
+                        else
+                        {
+                            <form method="post" asp-page-handler="Claim">
+                                <input type="hidden" name="id" value="@coupon.Id" />
+                                <button type="submit" class="primary-button">领取</button>
+                            </form>
+                        }
+                    </div>
+                </article>
+            }
+        </div>
+    }
+</section>
+
+<style>
+    .coupon-grid { display: grid; gap: 1rem; }
+    .coupon-card {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 1rem;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: rgba(255, 253, 249, 0.66);
+    }
+    .coupon-card h2 { margin: 0.25rem 0; font-size: 1.1rem; }
+    .coupon-card p { margin: 0; color: var(--muted); }
+    .coupon-code { color: var(--accent-strong); font-weight: 700; letter-spacing: 0; }
+    .coupon-date { display: inline-block; margin-top: 0.5rem; color: var(--muted); font-size: 0.88rem; }
+    .coupon-side { display: grid; justify-items: end; gap: 0.75rem; }
+    .coupon-side strong { color: var(--accent); font-size: 1.6rem; }
+    .coupon-side form { margin: 0; }
+    .status-pill { border-radius: 8px; padding: 0.35rem 0.65rem; background: var(--paper-deep); color: var(--accent-strong); font-size: 0.86rem; }
+    @@media (max-width: 640px) {
+        .coupon-card { align-items: flex-start; flex-direction: column; }
+        .coupon-side { justify-items: start; }
+    }
+</style>

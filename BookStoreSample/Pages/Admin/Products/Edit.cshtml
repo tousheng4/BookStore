@@ -1,0 +1,20 @@
+@page "{id:int}"
+@model BookStoreSample.Pages.Admin.Products.EditModel
+@{
+    ViewData["Title"] = "编辑图书";
+}
+@Html.AntiForgeryToken()
+
+<section class="admin-panel admin-panel-plain">
+    <div class="section-heading">
+        <div>
+            <span class="section-kicker">编辑图书</span>
+            <h1 class="section-title">编辑图书</h1>
+        </div>
+    </div>
+    <form method="post">
+        <input type="hidden" asp-for="Input.Id" />
+        <partial name="_ProductForm" model="Model.Input" />
+        <button type="submit" class="primary-button">保存修改</button>
+    </form>
+</section>

@@ -1,0 +1,96 @@
+﻿@page
+@model BookStoreSample.Pages.Cart.IndexModel
+@{
+    ViewData["Title"] = "购物袋";
+}
+
+<section class="tool-shell cart-shell-refined">
+    <article class="tool-main">
+        <div class="section-heading cart-heading">
+            <div>
+                <span class="section-kicker">购物袋</span>
+                <h1 class="section-title">购物袋</h1>
+                <p class="section-copy cart-heading-copy">调整数量、移除单品，确认后继续填写配送信息并完成下单。</p>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(Model.Message))
+        {
+            <div class="alert success">@Model.Message</div>
+        }
+
+        @if (Model.Items.Count == 0)
+        {
+            <div class="tool-row empty-state">你的购物袋还空着，去书店看看有什么想带走的书吧。</div>
+        }
+        else
+        {
+            <div class="cart-list cart-list-refined">
+                @foreach (var item in Model.Items)
+                {
+                    <article class="tool-row cart-row-refined">
+                        <div class="cart-item cart-item-refined">
+                            <div class="thumb-cover cart-thumb-cover">
+                                <img src="@item.Product?.CoverUrl" alt="@item.Product?.Title" />
+                            </div>
+                            <div class="cart-item-body-refined">
+                                <div class="cart-head cart-head-refined">
+                                    <div>
+                                        <h2 class="cart-title">@item.Product?.Title</h2>
+                                        <p class="panel-copy">@item.Product?.Author · @item.Product?.Publisher</p>
+                                    </div>
+                                    <div class="cart-price-block">
+                                        <span class="meta-label">小计</span>
+                                        <strong class="order-total">￥@item.LineTotal</strong>
+                                    </div>
+                                </div>
+                                <div class="product-meta cart-meta-refined">
+                                    <span>单价 ￥@item.Product?.Price</span>
+                                    <span>数量 @item.Quantity</span>
+                                </div>
+                                <div class="cart-actions-row">
+                                    <form method="post" asp-page-handler="Update" class="cart-quantity-form cart-quantity-form-auto">
+                                        <input type="hidden" name="productId" value="@item.ProductId" />
+                                        <div class="cart-quantity-cluster">
+                                            <label class="cart-quantity-label" for="quantity-@item.ProductId">购买数量</label>
+                                            <div class="cart-quantity-control cart-quantity-control-auto">
+                                                <input id="quantity-@item.ProductId"
+                                                       class="editorial-input quantity-input cart-quantity-input"
+                                                       type="number"
+                                                       name="quantity"
+                                                       value="@item.Quantity"
+                                                       min="1"
+                                                       onchange="this.form.submit()" />
+                                                <span class="cart-quantity-hint">修改后自动更新</span>
+                                            </div>
+                                        </div>
+                                    </form>
+                                    <form method="post" asp-page-handler="Remove" class="cart-remove-form">
+                                        <input type="hidden" name="productId" value="@item.ProductId" />
+                                        <button type="submit" class="ghost-button cart-remove-button">移除图书</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+                }
+            </div>
+        }
+    </article>
+
+    <aside class="tool-side">
+        <article class="summary-panel summary-panel-plain cart-summary-refined">
+            <span class="section-kicker">订单摘要</span>
+            <div>
+                <div class="meta-label">当前合计</div>
+                <div class="summary-price">￥@Model.TotalAmount</div>
+            </div>
+            <div class="summary-list">
+                <div class="summary-line"><span>结算方式</span><strong>在线下单</strong></div>
+                <div class="summary-line"><span>配送信息</span><strong>下一步填写</strong></div>
+            </div>
+            <a class="primary-button" asp-page="/Cart/Checkout">前往结算</a>
+            <a class="ghost-button" asp-page="/Products/Index">继续选书</a>
+        </article>
+    </aside>
+</section>

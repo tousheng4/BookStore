@@ -1,0 +1,154 @@
+@page
+@model BookStoreSample.Pages.Cart.CheckoutModel
+@{
+    ViewData["Title"] = "结算";
+}
+
+<section class="tool-shell">
+    <article class="checkout-panel checkout-panel-plain">
+        <span class="section-kicker">填写信息</span>
+        <h1 class="section-title">填写收货信息</h1>
+        @if (!string.IsNullOrWhiteSpace(Model.Message))
+        {
+            <div class="alert error">@Model.Message</div>
+        }
+
+        @if (Model.Addresses.Count > 0)
+        {
+            <div class="saved-addresses">
+                <h3>选择已有地址</h3>
+                <div class="address-radio-list">
+                    @foreach (var addr in Model.Addresses)
+                    {
+                        <label class="address-radio-card @(addr.Id == Model.Input.SelectedAddressId ? "selected" : "")">
+                            <input type="radio" name="SelectedAddressId" value="@addr.Id"
+                                   @(addr.Id == Model.Input.SelectedAddressId ? "checked" : "")
+                                   onchange="selectAddress(@addr.Id)" />
+                            <div class="ard-body">
+                                <div class="ard-header">
+                                    <span class="ard-name">@addr.ReceiverName</span>
+                                    <span class="ard-phone">@addr.ReceiverPhone</span>
+                                    @if (addr.IsDefault)
+                                    {
+                                        <span class="ard-tag">默认</span>
+                                    }
+                                </div>
+                                <p class="ard-addr">@addr.FullAddress</p>
+                            </div>
+                        </label>
+                    }
+                    <label class="address-radio-card" id="new-addr-label">
+                        <input type="radio" name="SelectedAddressId" value="0"
+                               onchange="selectAddress(0)" />
+                        <div class="ard-body">
+                            <span class="ard-name">使用新地址</span>
+                        </div>
+                    </label>
+                </div>
+            </div>
+        }
+
+        <form method="post" id="checkout-form">
+            <input type="hidden" asp-for="Input.SelectedAddressId" />
+
+            <div id="new-address-form" @(Model.Addresses.Count > 0 ? "style=display:none" : "")>
+                <div class="form-field">
+                    <label asp-for="Input.ReceiverName"></label>
+                    <input class="editorial-input" asp-for="Input.ReceiverName" />
+                </div>
+                <div class="form-field">
+                    <label asp-for="Input.ReceiverPhone"></label>
+                    <input class="editorial-input" asp-for="Input.ReceiverPhone" />
+                </div>
+                <div class="form-field">
+                    <label asp-for="Input.ShippingAddress"></label>
+                    <textarea class="editorial-textarea" asp-for="Input.ShippingAddress"></textarea>
+                </div>
+            </div>
+
+            <div class="coupon-panel">
+                <h3>选择优惠券</h3>
+                @if (Model.UsableCoupons.Count == 0)
+                {
+                    <p class="coupon-empty">暂无满足当前订单金额的优惠券。</p>
+                    <a asp-page="/Account/Coupons" class="ghost-link">去领券</a>
+                }
+                else
+                {
+                    <label class="coupon-option">
+                        <input type="radio" asp-for="Input.SelectedCouponId" value="0" checked />
+                        <span>不使用优惠券</span>
+                    </label>
+                    @foreach (var userCoupon in Model.UsableCoupons)
+                    {
+                        var coupon = userCoupon.Coupon!;
+                        <label class="coupon-option">
+                            <input type="radio" asp-for="Input.SelectedCouponId" value="@userCoupon.Id" />
+                            <span>@coupon.Name</span>
+                            <strong>-&yen;@coupon.DiscountAmount.ToString("0.00")</strong>
+                        </label>
+                    }
+                }
+            </div>
+
+            <div class="form-field" style="margin-top:1rem;">
+                <a asp-page="/Account/Addresses/Edit" class="ghost-button" target="_blank">+ 新增地址</a>
+            </div>
+
+            <button type="submit" class="primary-button" style="margin-top:1rem;">提交订单</button>
+        </form>
+    </article>
+    <aside class="tool-side">
+        <article class="summary-panel summary-panel-plain">
+            <span class="section-kicker">订单摘要</span>
+            <div class="summary-list">
+                @foreach (var item in Model.Items)
+                {
+                    <div class="summary-line">
+                        <span>@item.Product?.Title x @item.Quantity</span>
+                        <strong>&yen;@item.LineTotal.ToString("0.00")</strong>
+                    </div>
+                }
+            </div>
+            @if (Model.DiscountAmount > 0)
+            {
+                <div class="summary-line">
+                    <span>优惠</span>
+                    <strong>-&yen;@Model.DiscountAmount.ToString("0.00")</strong>
+                </div>
+            }
+            <div class="summary-price">&yen;@Model.PayableAmount.ToString("0.00")</div>
+        </article>
+    </aside>
+</section>
+
+<script>
+    function selectAddress(id) {
+        document.getElementById('Input_SelectedAddressId').value = id;
+        document.getElementById('new-address-form').style.display = id === 0 ? 'block' : 'none';
+        document.querySelectorAll('.address-radio-card').forEach(function(el) {
+            el.classList.toggle('selected', el.querySelector('input').checked);
+        });
+    }
+</script>
+
+<style>
+    .address-radio-list { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem; }
+    .address-radio-card { display: flex; align-items: flex-start; gap: 0.75rem; border: 1px solid var(--paper-deep); border-radius: 4px; padding: 0.75rem; cursor: pointer; transition: border-color 0.15s; }
+    .address-radio-card:hover { border-color: var(--muted); }
+    .address-radio-card.selected { border-color: var(--accent); background: rgba(141,43,39,0.04); }
+    .address-radio-card input[type=radio] { margin-top: 0.2rem; accent-color: var(--accent); }
+    .ard-body { flex: 1; }
+    .ard-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem; }
+    .ard-name { font-weight: 600; }
+    .ard-phone { color: var(--muted); font-size: 0.9rem; }
+    .ard-tag { font-size: 0.7rem; background: var(--accent); color: #fff; padding: 0.1rem 0.4rem; border-radius: 2px; }
+    .ard-addr { color: var(--muted); font-size: 0.85rem; margin: 0; }
+    .coupon-panel { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+    .coupon-panel h3 { margin: 0 0 0.75rem; font-size: 1rem; }
+    .coupon-option { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; border: 1px solid var(--paper-deep); border-radius: 4px; padding: 0.65rem 0.75rem; margin-bottom: 0.5rem; }
+    .coupon-option input { accent-color: var(--accent); }
+    .coupon-option span { flex: 1; }
+    .coupon-option strong { color: var(--accent); }
+    .coupon-empty { margin: 0 0 0.5rem; color: var(--muted); }
+</style>

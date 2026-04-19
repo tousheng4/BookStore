@@ -1,0 +1,346 @@
+﻿@page
+@model BookStoreSample.Pages.Products.IndexModel
+@Html.AntiForgeryToken()
+@{
+    ViewData["Title"] = "书店";
+    var hasKeyword = !string.IsNullOrWhiteSpace(Model.Keyword);
+    var pageNumbers = Enumerable.Range(1, Model.TotalPages)
+        .Where(page => page == 1 || page == Model.TotalPages || Math.Abs(page - Model.CurrentPageNumber) <= 2)
+        .ToList();
+}
+
+<section class="catalog-shell catalog-shell-refined">
+    <article class="catalog-hero">
+        <div class="catalog-hero-copy">
+            <span class="section-kicker">线上书房目录</span>
+            <h1 class="catalog-hero-title">书店</h1>
+            <p class="catalog-hero-text">从技术、文学到设计与商业，按主题慢慢挑，也可以直接搜索你已经想找的那一本。</p>
+        </div>
+        <form method="get" class="filter-form" role="search">
+            <div class="filter-row">
+                <input class="filter-input" type="text" asp-for="Keyword" placeholder="输入书名、作者或分类" />
+                <select class="filter-input" asp-for="Category">
+                    <option value="">全部分类</option>
+                    <option value="编程开发">编程开发</option>
+                    <option value="人工智能">人工智能</option>
+                    <option value="文学小说">文学小说</option>
+                    <option value="商业管理">商业管理</option>
+                    <option value="设计创意">设计创意</option>
+                    <option value="历史人文">历史人文</option>
+                    <option value="教材教辅">教材教辅</option>
+                </select>
+                <select class="filter-input" asp-for="SortBy">
+                    <option value="newest">最新上架</option>
+                    <option value="price_asc">价格 ↑</option>
+                    <option value="price_desc">价格 ↓</option>
+                    <option value="sales">销量最高</option>
+                    <option value="rating">评分最高</option>
+                    <option value="stock">库存最多</option>
+                </select>
+            </div>
+            <div class="filter-row">
+                <label class="price-filter-label">价格区间：</label>
+                <input class="filter-input price-input" type="number" asp-for="MinPrice" placeholder="最低价" min="0" step="1" />
+                <span>—</span>
+                <input class="filter-input price-input" type="number" asp-for="MaxPrice" placeholder="最高价" min="0" step="1" />
+                <label class="review-filter">
+                    <input type="checkbox" asp-for="ReviewedOnly" />
+                    只看有评价
+                </label>
+                <button type="submit" class="primary-button">筛选</button>
+                <a asp-page="/Products/Index" class="ghost-button">重置</a>
+            </div>
+        </form>
+    </article>
+
+    <section class="catalog-coupon-strip" aria-label="优惠券">
+        <div>
+            <span class="coupon-strip-kicker">满减券</span>
+            <strong>先领券，再挑书</strong>
+            <p>新客满 99 减 10，精选图书满 199 减 25，囤书满 299 减 45。</p>
+        </div>
+        @if (User.Identity?.IsAuthenticated == true)
+        {
+            <a class="primary-button" asp-page="/Account/Coupons">领取优惠券</a>
+        }
+        else
+        {
+            <a class="primary-button" asp-page="/Account/Login" asp-route-returnUrl="/Account/Coupons">登录领券</a>
+        }
+    </section>
+
+    @if (User.Identity?.IsAuthenticated == true && Model.RecommendedProducts.Count > 0)
+    {
+        <section class="recommendation-strip" aria-label="猜你喜欢">
+            <div class="recommendation-head">
+                <div>
+                    <h2 class="recommendation-title">猜你喜欢</h2>
+                    <p>按你的下单偏好挑了几本</p>
+                </div>
+                <span class="recommendation-note">同分类、同作者优先</span>
+            </div>
+            <div class="recommendation-list">
+                @foreach (var book in Model.RecommendedProducts)
+                {
+                    var reviewSummary = Model.ReviewSummaries.TryGetValue(book.Id, out var summary)
+                        ? summary
+                        : new ReviewSummary(0, 0);
+                    <article class="recommendation-item">
+                        <a class="recommendation-cover" asp-page="/Products/Details" asp-route-id="@book.Id">
+                            <img src="@book.CoverUrl" alt="@book.Title" />
+                        </a>
+                        <div class="recommendation-body">
+                            <span class="recommendation-category">@book.Category</span>
+                            <h3><a asp-page="/Products/Details" asp-route-id="@book.Id">@book.Title</a></h3>
+                            <p>@book.Author · @book.Publisher</p>
+                            <p class="catalog-rating">
+                                <span>@(reviewSummary.Count == 0 ? "☆☆☆☆☆" : new string('★', (int)Math.Round(reviewSummary.AverageRating)).PadRight(5, '☆'))</span>
+                                @reviewSummary.AverageText
+                            </p>
+                        </div>
+                        <div class="recommendation-actions">
+                            <strong>￥@book.Price</strong>
+                            <a class="primary-button" asp-page="/Products/Details" asp-route-id="@book.Id">查看</a>
+                            <button type="button"
+                                    class="ghost-button wishlist-btn @(Model.WishlistedIds.Contains(book.Id) ? "is-wishlisted" : "")"
+                                    onclick="toggleWishlist(this, @book.Id)"
+                                    data-product-id="@book.Id"
+                                    data-wishlisted="@(Model.WishlistedIds.Contains(book.Id) ? "true" : "false")">
+                                @(Model.WishlistedIds.Contains(book.Id) ? "♥" : "♡")
+                            </button>
+                        </div>
+                    </article>
+                }
+            </div>
+        </section>
+    }
+
+    <section class="catalog-summary" aria-label="检索结果">
+        <div class="catalog-summary-line">
+            <span class="catalog-summary-count">共 @Model.TotalCount 本图书</span>
+            @if (Model.TotalCount > 0)
+            {
+                <span class="catalog-summary-range">当前显示 @Model.StartItem - @Model.EndItem</span>
+            }
+            @if (hasKeyword)
+            {
+                <span class="catalog-summary-keyword">当前筛选：@Model.Keyword</span>
+                <a class="ghost-link" asp-page="/Products/Index">清除筛选</a>
+            }
+            else
+            {
+                <a class="catalog-summary-keyword catalog-summary-link" asp-page="/Products/Index">浏览全部目录</a>
+            }
+        </div>
+    </section>
+
+    @if (Model.Products.Count == 0)
+    {
+        <section class="empty-state catalog-empty">
+            <h2 class="catalog-empty-title">没有找到相关图书</h2>
+            <p>换一个关键词试试，或者回到完整目录继续浏览。</p>
+            <a class="primary-button" asp-page="/Products/Index">查看全部图书</a>
+        </section>
+    }
+    else
+    {
+        <div class="catalog-list catalog-list-refined">
+            @foreach (var book in Model.Products)
+            {
+                var reviewSummary = Model.ReviewSummaries.TryGetValue(book.Id, out var summary)
+                    ? summary
+                    : new ReviewSummary(0, 0);
+                <article class="catalog-item catalog-item-refined">
+                    <a class="catalog-cover-link" asp-page="/Products/Details" asp-route-id="@book.Id">
+                        <div class="cover-frame catalog-cover-frame">
+                            <img src="@book.CoverUrl" alt="@book.Title" />
+                        </div>
+                    </a>
+                    <div class="catalog-item-body catalog-item-body-refined">
+                        <div class="catalog-item-head">
+                            <p class="book-tile-meta">@book.Category</p>
+                            <p class="catalog-item-stock">库存 @book.Stock</p>
+                        </div>
+                        <h2 class="catalog-item-title"><a asp-page="/Products/Details" asp-route-id="@book.Id">@book.Title</a></h2>
+                        <p class="product-copy catalog-author">@book.Author · @book.Publisher</p>
+                        <p class="catalog-rating">
+                            <span>@(reviewSummary.Count == 0 ? "☆☆☆☆☆" : new string('★', (int)Math.Round(reviewSummary.AverageRating)).PadRight(5, '☆'))</span>
+                            @reviewSummary.AverageText · @reviewSummary.Count 条评价
+                        </p>
+                        <p class="catalog-description">@book.Description</p>
+                    </div>
+                    <div class="catalog-item-actions catalog-item-actions-refined">
+                        <div class="catalog-price-block">
+                            <span class="catalog-price-label">到手价</span>
+                            <span class="product-price">￥@book.Price</span>
+                        </div>
+                        <a class="primary-button" asp-page="/Products/Details" asp-route-id="@book.Id">查看详情</a>
+                        @if (User.Identity?.IsAuthenticated == true)
+                        {
+                            <button type="button"
+                                    class="ghost-button wishlist-btn @(Model.WishlistedIds.Contains(book.Id) ? "is-wishlisted" : "")"
+                                    onclick="toggleWishlist(this, @book.Id)"
+                                    data-product-id="@book.Id"
+                                    data-wishlisted="@(Model.WishlistedIds.Contains(book.Id) ? "true" : "false")">
+                                @(Model.WishlistedIds.Contains(book.Id) ? "♥" : "♡")
+                            </button>
+                        }
+                    </div>
+                </article>
+            }
+        </div>
+
+        <nav class="pagination-shell" aria-label="图书分页导航">
+            <a class="pagination-link @(Model.CurrentPageNumber <= 1 ? "is-disabled" : string.Empty)"
+               asp-page="/Products/Index"
+               asp-route-keyword="@Model.Keyword"
+               asp-route-category="@Model.Category"
+               asp-route-minPrice="@Model.MinPrice"
+               asp-route-maxPrice="@Model.MaxPrice"
+               asp-route-sortBy="@Model.SortBy"
+               asp-route-reviewedOnly="@Model.ReviewedOnly"
+               asp-route-currentPage="@(Model.CurrentPageNumber - 1)">上一页</a>
+
+            <div class="pagination-pages">
+                @for (var i = 0; i < pageNumbers.Count; i++)
+                {
+                    if (i > 0 && pageNumbers[i] - pageNumbers[i - 1] > 1)
+                    {
+                        <span class="pagination-ellipsis">…</span>
+                    }
+
+                    var pageNumber = pageNumbers[i];
+                    <a class="pagination-link @(pageNumber == Model.CurrentPageNumber ? "is-current" : string.Empty)"
+                       asp-page="/Products/Index"
+                       asp-route-keyword="@Model.Keyword"
+                       asp-route-category="@Model.Category"
+                       asp-route-minPrice="@Model.MinPrice"
+                       asp-route-maxPrice="@Model.MaxPrice"
+                       asp-route-sortBy="@Model.SortBy"
+                       asp-route-reviewedOnly="@Model.ReviewedOnly"
+                       asp-route-currentPage="@pageNumber">@pageNumber</a>
+                }
+            </div>
+
+            <a class="pagination-link @(Model.CurrentPageNumber >= Model.TotalPages ? "is-disabled" : string.Empty)"
+               asp-page="/Products/Index"
+               asp-route-keyword="@Model.Keyword"
+               asp-route-category="@Model.Category"
+               asp-route-minPrice="@Model.MinPrice"
+               asp-route-maxPrice="@Model.MaxPrice"
+               asp-route-sortBy="@Model.SortBy"
+               asp-route-reviewedOnly="@Model.ReviewedOnly"
+               asp-route-currentPage="@(Model.CurrentPageNumber + 1)">下一页</a>
+        </nav>
+    }
+</section>
+
+<script>
+async function toggleWishlist(btn, productId) {
+    var isWishlisted = btn.getAttribute('data-wishlisted') === 'true';
+    var url = '/Products/Index?handler=ToggleWishlist&productId=' + productId;
+
+    try {
+        var response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+            }
+        });
+        if (response.ok) {
+            var newState = !isWishlisted;
+            btn.setAttribute('data-wishlisted', newState ? 'true' : 'false');
+            btn.innerHTML = newState ? '♥' : '♡';
+            if (newState) {
+                btn.classList.add('is-wishlisted');
+            } else {
+                btn.classList.remove('is-wishlisted');
+            }
+        }
+    } catch (e) {
+        // fallback: treat as SPA redirect
+        window.location.href = url;
+    }
+}
+</script>
+
+<style>
+.filter-form { display: flex; flex-direction: column; gap: 0.75rem; }
+.filter-row { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
+.filter-input { padding: 0.4rem 0.6rem; border: 1px solid var(--paper-deep); border-radius: 3px; background: var(--surface); font-size: 0.9rem; }
+.price-input { width: 90px; }
+.price-filter-label { font-size: 0.85rem; color: var(--muted); white-space: nowrap; }
+.review-filter { display: inline-flex; align-items: center; gap: 0.35rem; color: var(--muted); font-size: 0.9rem; white-space: nowrap; }
+.review-filter input { accent-color: var(--accent); }
+.catalog-rating { margin: 0; color: var(--muted); font-size: 0.92rem; }
+.catalog-rating span { color: var(--accent); letter-spacing: 0; }
+.catalog-coupon-strip {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.9rem 1rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(255, 253, 249, 0.72);
+}
+.catalog-coupon-strip div { display: grid; gap: 0.2rem; }
+.catalog-coupon-strip strong { font-size: 1.05rem; color: var(--ink); }
+.catalog-coupon-strip p { margin: 0; color: var(--muted); font-size: 0.9rem; }
+.coupon-strip-kicker { color: var(--accent-strong); font-size: 0.78rem; font-weight: 700; }
+.recommendation-strip {
+    display: grid;
+    gap: 1rem;
+    padding: 1rem 0;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+}
+.recommendation-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: end;
+}
+.recommendation-title { margin: 0; font-size: 1.65rem; color: var(--ink); }
+.recommendation-head p { margin: 0.25rem 0 0; color: var(--muted); font-size: 0.95rem; }
+.recommendation-note { color: var(--muted); font-size: 0.9rem; white-space: nowrap; }
+.recommendation-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.8rem;
+}
+.recommendation-item {
+    display: grid;
+    grid-template-columns: 74px minmax(0, 1fr) auto;
+    gap: 0.8rem;
+    align-items: center;
+    padding: 0.75rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(255, 253, 249, 0.74);
+}
+.recommendation-cover {
+    display: block;
+    width: 74px;
+    aspect-ratio: 3 / 4;
+    overflow: hidden;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+}
+.recommendation-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.recommendation-body { min-width: 0; display: grid; gap: 0.25rem; }
+.recommendation-body h3 { margin: 0; font-size: 1rem; line-height: 1.25; }
+.recommendation-body h3 a { color: var(--ink); text-decoration: none; }
+.recommendation-body p { margin: 0; color: var(--muted); font-size: 0.88rem; overflow-wrap: anywhere; }
+.recommendation-category { color: var(--accent-strong); font-size: 0.78rem; font-weight: 700; }
+.recommendation-actions { display: grid; gap: 0.45rem; justify-items: end; }
+.recommendation-actions strong { color: var(--accent-strong); font-size: 1rem; }
+@@media (max-width: 640px) {
+    .catalog-coupon-strip { align-items: flex-start; flex-direction: column; }
+    .recommendation-head { align-items: flex-start; flex-direction: column; }
+    .recommendation-note { white-space: normal; }
+    .recommendation-list { grid-template-columns: 1fr; }
+    .recommendation-item { grid-template-columns: 64px minmax(0, 1fr); }
+    .recommendation-actions { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; justify-items: stretch; }
+}
+</style>

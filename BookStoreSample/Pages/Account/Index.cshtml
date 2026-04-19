@@ -1,0 +1,836 @@
+@page
+@model BookStoreSample.Pages.Account.IndexModel
+@{
+    ViewData["Title"] = "个人中心";
+    var initial = Model.UserInfo?.DisplayName?.FirstOrDefault() ?? 'U';
+}
+
+<section class="account-dashboard">
+    <aside class="profile-rail">
+        <div class="profile-avatar">@initial</div>
+        <div class="profile-copy">
+            <span class="section-kicker">My Account</span>
+            <h1>@Model.UserInfo?.DisplayName</h1>
+            <p>@Model.UserInfo?.Email</p>
+            <span class="profile-role">@(Model.IsAdmin ? "管理员" : "普通用户")</span>
+        </div>
+        <div class="profile-joined">注册于 @Model.UserInfo?.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd")</div>
+        <div class="profile-actions">
+            <a asp-page="/Account/Profile" class="primary-button">编辑资料</a>
+            <a asp-page="/Products/Index" class="ghost-button">继续逛书店</a>
+        </div>
+    </aside>
+
+    <div class="account-main">
+        <section class="account-hero-panel">
+            <div class="account-hero-copy">
+                <span class="section-kicker">Reading Profile</span>
+                <h2>你的书房近况</h2>
+                <p>把订单、收藏、优惠券和阅读偏好放在同一个视野里，先看到最重要的，再去处理具体事项。</p>
+            </div>
+            <div class="account-metric-strip">
+                <div>
+                    <span>成交订单</span>
+                    <strong>@Model.Insights.PaidOrderCount</strong>
+                </div>
+                <div>
+                    <span>买过图书</span>
+                    <strong>@Model.Insights.PurchasedBookCount</strong>
+                </div>
+                <div>
+                    <span>累计消费</span>
+                    <strong>￥@Model.Insights.TotalSpent.ToString("0.00")</strong>
+                </div>
+                <div>
+                    <span>偏好分类</span>
+                    <strong>@Model.Insights.FavoriteCategory</strong>
+                </div>
+            </div>
+        </section>
+
+        <section class="insight-stage" aria-label="个人数据画像">
+            <article class="trend-panel">
+                <div class="panel-title-row">
+                    <div>
+                        <span class="section-kicker">Trend</span>
+                        <h3>近 6 个月消费趋势</h3>
+                    </div>
+                    <span class="panel-chip">折线图</span>
+                </div>
+                <div class="line-chart" aria-label="近 6 个月消费趋势">
+                    <svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img">
+                        <polyline points="@Model.Insights.MonthlySpendPolyline" />
+                    </svg>
+                    @for (var i = 0; i < Model.Insights.MonthlySpend.Count; i++)
+                    {
+                        var item = Model.Insights.MonthlySpend[i];
+                        var left = Model.Insights.MonthlySpend.Count == 1
+                            ? 50
+                            : i * 100 / (Model.Insights.MonthlySpend.Count - 1);
+                        <span class="line-dot" style="left:@left%; bottom:@item.Percent%" title="@item.Label @item.DisplayValue"></span>
+                    }
+                </div>
+                <div class="chart-axis-labels">
+                    @foreach (var item in Model.Insights.MonthlySpend)
+                    {
+                        <span>@item.Label</span>
+                    }
+                </div>
+            </article>
+
+            <article class="radar-panel">
+                <div class="panel-title-row">
+                    <div>
+                        <span class="section-kicker">Taste</span>
+                        <h3>阅读兴趣雷达</h3>
+                    </div>
+                    <span class="panel-chip">雷达图</span>
+                </div>
+                @if (Model.Insights.RadarItems.Count > 0)
+                {
+                    <div class="radar-chart">
+                        <div class="radar-ring radar-ring-large"></div>
+                        <div class="radar-ring radar-ring-mid"></div>
+                        <div class="radar-ring radar-ring-small"></div>
+                        <div class="radar-fill" style="clip-path: polygon(@Model.Insights.RadarPolygon)"></div>
+                        @foreach (var item in Model.Insights.RadarItems)
+                        {
+                            <span class="radar-axis" style="left:@item.AxisX%; top:@item.AxisY%"></span>
+                            <span class="radar-dot" style="left:@item.DotX%; top:@item.DotY%" title="@item.Label @item.Percent%"></span>
+                            <span class="radar-label" style="left:@item.AxisX%; top:@item.AxisY%">@item.Label</span>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <p class="muted-text">完成一次下单后，这里会生成你的兴趣雷达。</p>
+                }
+            </article>
+
+            <article class="preference-panel">
+                <div class="panel-title-row">
+                    <div>
+                        <span class="section-kicker">Category</span>
+                        <h3>分类偏好</h3>
+                    </div>
+                    <span class="panel-chip">柱状图</span>
+                </div>
+                @if (Model.Insights.CategoryPreferences.Count > 0)
+                {
+                    <div class="preference-bars">
+                        @foreach (var item in Model.Insights.CategoryPreferences)
+                        {
+                            <div class="preference-row">
+                                <span>@item.Label</span>
+                                <div class="preference-track"><i style="width:@item.Percent%"></i></div>
+                                <strong>@item.DisplayValue</strong>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <p class="muted-text">下单后会显示你更常购买的图书分类。</p>
+                }
+            </article>
+        </section>
+
+        <section class="account-workbench" aria-label="账户事项">
+            <article class="workbench-panel order-panel">
+                <div class="panel-title-row">
+                    <div>
+                        <span class="section-kicker">Orders</span>
+                        <h3>最近订单</h3>
+                    </div>
+                    <span class="count-badge">@Model.OrderCount</span>
+                </div>
+                @if (Model.RecentOrders.Count > 0)
+                {
+                    <div class="order-timeline">
+                        @foreach (var order in Model.RecentOrders.Take(4))
+                        {
+                            var firstItem = order.Items.FirstOrDefault();
+                            <a class="order-timeline-row" asp-page="/Orders/Details" asp-route-id="@order.Id">
+                                @if (firstItem is not null)
+                                {
+                                    <img src="@firstItem.CoverUrl" alt="@firstItem.Title" loading="lazy" />
+                                    <span>@firstItem.Title</span>
+                                }
+                                else
+                                {
+                                    <span>订单 #@order.Id</span>
+                                }
+                                <strong>￥@order.TotalAmount.ToString("0.00")</strong>
+                                <em>@order.Status</em>
+                            </a>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <p class="muted-text">暂无订单，去书店挑一本开始吧。</p>
+                }
+                <a asp-page="/Orders/Index" class="ghost-button panel-action">查看全部订单</a>
+            </article>
+
+            <article class="workbench-panel coupon-panel">
+                <div class="panel-title-row">
+                    <div>
+                        <span class="section-kicker">Coupons</span>
+                        <h3>可用优惠</h3>
+                    </div>
+                    <span class="count-badge">@Model.AvailableCouponCount / @Model.CouponCount</span>
+                </div>
+                @if (Model.UserCoupons.Count > 0)
+                {
+                    <div class="coupon-summary-list">
+                        @foreach (var item in Model.UserCoupons.Take(3))
+                        {
+                            if (item.Coupon is not null)
+                            {
+                                var isAvailable = item.UsedAt is null &&
+                                                  item.Coupon.IsActive &&
+                                                  item.Coupon.StartsAt <= DateTime.UtcNow &&
+                                                  item.Coupon.EndsAt >= DateTime.UtcNow;
+                                <div class="coupon-summary-row">
+                                    <div>
+                                        <strong>@item.Coupon.Name</strong>
+                                        <span>满 ￥@item.Coupon.MinimumAmount.ToString("0.00") 减 ￥@item.Coupon.DiscountAmount.ToString("0.00")</span>
+                                    </div>
+                                    <span class="coupon-state @(isAvailable ? "is-available" : string.Empty)">
+                                        @(isAvailable ? "可用" : item.UsedAt is null ? "不可用" : "已使用")
+                                    </span>
+                                </div>
+                            }
+                        }
+                    </div>
+                }
+                else
+                {
+                    <p class="muted-text">还没有领取优惠券，去书店页面看看当前满减活动。</p>
+                }
+                <a asp-page="/Account/Coupons" class="ghost-button panel-action">管理优惠券</a>
+            </article>
+
+            <article class="workbench-panel address-panel">
+                <div class="panel-title-row">
+                    <div>
+                        <span class="section-kicker">Address</span>
+                        <h3>默认收货</h3>
+                    </div>
+                    <span class="count-badge">@Model.AddressCount</span>
+                </div>
+                @if (Model.DefaultAddress is not null)
+                {
+                    <p class="address-summary"><strong>@Model.DefaultAddress.ReceiverName</strong> @Model.DefaultAddress.ReceiverPhone</p>
+                    <p class="address-detail">@Model.DefaultAddress.FullAddress</p>
+                }
+                else
+                {
+                    <p class="muted-text">暂无收货地址。</p>
+                }
+                <a asp-page="/Account/Addresses/Index" class="ghost-button panel-action">管理地址</a>
+            </article>
+
+            <article class="workbench-panel wishlist-panel">
+                <div class="panel-title-row">
+                    <div>
+                        <span class="section-kicker">Wishlist</span>
+                        <h3>收藏书单</h3>
+                    </div>
+                    <span class="count-badge">@Model.WishlistCount</span>
+                </div>
+                @if (Model.WishlistItems.Count > 0)
+                {
+                    <div class="wishlist-covers">
+                        @foreach (var item in Model.WishlistItems.Take(4))
+                        {
+                            if (item.Product is not null)
+                            {
+                                <a asp-page="/Products/Details" asp-route-id="@item.Product.Id" class="cover-thumb">
+                                    <img src="@item.Product.CoverUrl" alt="@item.Product.Title" loading="lazy" />
+                                </a>
+                            }
+                        }
+                    </div>
+                }
+                else
+                {
+                    <p class="muted-text">暂无收藏图书。</p>
+                }
+                <a asp-page="/Account/Wishlist" class="ghost-button panel-action">查看收藏</a>
+            </article>
+
+            <article class="workbench-panel viewed-panel">
+                <div class="panel-title-row">
+                    <div>
+                        <span class="section-kicker">History</span>
+                        <h3>最近浏览</h3>
+                    </div>
+                    <span class="count-badge">@Model.RecentlyViewedProducts.Count</span>
+                </div>
+                @if (Model.RecentlyViewedProducts.Count > 0)
+                {
+                    <div class="recent-viewed-grid">
+                        @foreach (var product in Model.RecentlyViewedProducts)
+                        {
+                            <a asp-page="/Products/Details" asp-route-id="@product.Id" class="recent-viewed-item">
+                                <img src="@product.CoverUrl" alt="@product.Title" loading="lazy" />
+                                <span>@product.Title</span>
+                            </a>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <p class="muted-text">去书店逛逛，最近看过的图书会出现在这里。</p>
+                }
+            </article>
+        </section>
+    </div>
+</section>
+
+<style>
+    .account-dashboard {
+        display: grid;
+        grid-template-columns: 300px minmax(0, 1fr);
+        gap: 1.4rem;
+        align-items: start;
+    }
+
+    .profile-rail {
+        position: sticky;
+        top: 94px;
+        display: grid;
+        gap: 1rem;
+        min-height: 560px;
+        padding: 1.25rem;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background:
+            linear-gradient(180deg, rgba(255, 251, 245, 0.94), rgba(255, 251, 245, 0.72)),
+            url("https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&w=900&q=80") center/cover;
+        box-shadow: var(--shadow);
+    }
+
+    .profile-avatar {
+        width: 78px;
+        height: 78px;
+        border-radius: 8px;
+        display: grid;
+        place-items: center;
+        background: var(--ink);
+        color: #fff8f2;
+        font-size: 2rem;
+        font-weight: 700;
+    }
+
+    .profile-copy {
+        display: grid;
+        gap: 0.45rem;
+    }
+
+    .profile-copy h1 {
+        margin: 0;
+        font-size: 2rem;
+        line-height: 1.1;
+        overflow-wrap: anywhere;
+    }
+
+    .profile-copy p,
+    .profile-joined,
+    .muted-text {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.75;
+    }
+
+    .profile-role {
+        width: fit-content;
+        padding: 0.22rem 0.55rem;
+        border-radius: 8px;
+        background: var(--paper-deep);
+        color: var(--accent-strong);
+        font-size: 0.84rem;
+        font-weight: 700;
+    }
+
+    .profile-actions {
+        display: grid;
+        gap: 0.65rem;
+        align-self: end;
+    }
+
+    .account-main {
+        display: grid;
+        gap: 1rem;
+    }
+
+    .account-hero-panel {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(340px, 0.92fr);
+        gap: 1rem;
+        align-items: end;
+        padding: 1.25rem 0 1.1rem;
+        border-bottom: 1px solid var(--line);
+    }
+
+    .account-hero-copy h2 {
+        margin: 0.2rem 0 0.4rem;
+        font-size: clamp(2rem, 4vw, 3.6rem);
+        line-height: 1.04;
+    }
+
+    .account-hero-copy p {
+        max-width: 36rem;
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.85;
+    }
+
+    .account-metric-strip {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.7rem;
+    }
+
+    .account-metric-strip div,
+    .workbench-panel,
+    .trend-panel,
+    .radar-panel,
+    .preference-panel {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: rgba(255, 251, 245, 0.78);
+    }
+
+    .account-metric-strip div {
+        min-height: 92px;
+        display: grid;
+        align-content: space-between;
+        padding: 0.8rem;
+    }
+
+    .account-metric-strip span {
+        color: var(--muted);
+        font-size: 0.84rem;
+    }
+
+    .account-metric-strip strong {
+        font-size: 1.35rem;
+        color: var(--ink);
+        overflow-wrap: anywhere;
+    }
+
+    .insight-stage {
+        display: grid;
+        grid-template-columns: minmax(0, 1.35fr) minmax(250px, 0.85fr);
+        grid-template-areas:
+            "trend radar"
+            "trend preference";
+        gap: 1rem;
+    }
+
+    .trend-panel { grid-area: trend; }
+    .radar-panel { grid-area: radar; }
+    .preference-panel { grid-area: preference; }
+
+    .trend-panel,
+    .radar-panel,
+    .preference-panel,
+    .workbench-panel {
+        padding: 1rem;
+        display: grid;
+        gap: 0.85rem;
+    }
+
+    .panel-title-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        align-items: start;
+    }
+
+    .panel-title-row h3 {
+        margin: 0.15rem 0 0;
+        font-size: 1.08rem;
+    }
+
+    .panel-chip,
+    .count-badge,
+    .coupon-state {
+        border-radius: 8px;
+        padding: 0.18rem 0.55rem;
+        white-space: nowrap;
+        font-size: 0.78rem;
+    }
+
+    .panel-chip {
+        background: var(--paper-deep);
+        color: var(--muted);
+    }
+
+    .count-badge {
+        background: var(--accent);
+        color: #fff8f2;
+    }
+
+    .line-chart {
+        position: relative;
+        min-height: 260px;
+        border-left: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        background:
+            linear-gradient(to top, rgba(0, 0, 0, 0.05) 1px, transparent 1px) 0 0 / 100% 25%,
+            rgba(255, 253, 249, 0.62);
+    }
+
+    .line-chart svg {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+    }
+
+    .line-chart polyline {
+        fill: none;
+        stroke: var(--accent);
+        stroke-width: 3;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        vector-effect: non-scaling-stroke;
+    }
+
+    .line-dot {
+        position: absolute;
+        width: 11px;
+        height: 11px;
+        border-radius: 50%;
+        background: var(--accent-strong);
+        border: 2px solid var(--surface);
+        transform: translate(-50%, 50%);
+    }
+
+    .chart-axis-labels {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.35rem;
+        color: var(--muted);
+        font-size: 0.78rem;
+    }
+
+    .radar-chart {
+        position: relative;
+        width: min(100%, 250px);
+        aspect-ratio: 1;
+        margin: 0 auto;
+        border-radius: 50%;
+        background:
+            linear-gradient(90deg, transparent 49.7%, var(--line) 50%, transparent 50.3%),
+            linear-gradient(0deg, transparent 49.7%, var(--line) 50%, transparent 50.3%),
+            rgba(255, 253, 249, 0.62);
+    }
+
+    .radar-ring {
+        position: absolute;
+        inset: 0;
+        margin: auto;
+        border: 1px solid var(--line);
+        border-radius: 50%;
+        pointer-events: none;
+    }
+
+    .radar-ring-large { width: 88%; height: 88%; }
+    .radar-ring-mid { width: 58%; height: 58%; }
+    .radar-ring-small { width: 30%; height: 30%; }
+
+    .radar-fill {
+        position: absolute;
+        inset: 0;
+        background: rgba(141, 43, 39, 0.24);
+    }
+
+    .radar-axis,
+    .radar-dot,
+    .radar-label {
+        position: absolute;
+        transform: translate(-50%, -50%);
+    }
+
+    .radar-axis {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--line);
+    }
+
+    .radar-dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--accent-strong);
+        border: 2px solid var(--surface);
+    }
+
+    .radar-label {
+        max-width: 74px;
+        padding: 0.1rem 0.3rem;
+        border-radius: 6px;
+        background: var(--surface);
+        color: var(--muted);
+        font-size: 0.72rem;
+        text-align: center;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .preference-bars,
+    .coupon-summary-list,
+    .order-timeline {
+        display: grid;
+        gap: 0.65rem;
+    }
+
+    .preference-row {
+        display: grid;
+        grid-template-columns: minmax(64px, 0.8fr) minmax(90px, 1.8fr) auto;
+        gap: 0.55rem;
+        align-items: center;
+        font-size: 0.86rem;
+    }
+
+    .preference-row span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .preference-track {
+        height: 10px;
+        border-radius: 8px;
+        background: var(--paper-deep);
+        overflow: hidden;
+    }
+
+    .preference-track i {
+        display: block;
+        height: 100%;
+        border-radius: 8px;
+        background: var(--accent);
+    }
+
+    .preference-row strong {
+        font-size: 0.84rem;
+        color: var(--muted);
+        white-space: nowrap;
+    }
+
+    .account-workbench {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        gap: 1rem;
+    }
+
+    .order-panel { grid-column: span 4; }
+    .coupon-panel { grid-column: span 2; }
+    .address-panel,
+    .wishlist-panel,
+    .viewed-panel { grid-column: span 2; }
+
+    .panel-action {
+        width: fit-content;
+        justify-self: end;
+        align-self: end;
+    }
+
+    .order-timeline-row {
+        display: grid;
+        grid-template-columns: 42px minmax(0, 1fr) auto auto;
+        gap: 0.65rem;
+        align-items: center;
+        padding-bottom: 0.65rem;
+        border-bottom: 1px solid var(--line);
+    }
+
+    .order-timeline-row:last-child {
+        border-bottom: 0;
+        padding-bottom: 0;
+    }
+
+    .order-timeline-row img {
+        width: 42px;
+        height: 56px;
+        object-fit: cover;
+        border-radius: 6px;
+    }
+
+    .order-timeline-row span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .order-timeline-row strong {
+        color: var(--accent);
+        white-space: nowrap;
+    }
+
+    .order-timeline-row em {
+        font-style: normal;
+        color: var(--muted);
+        font-size: 0.82rem;
+        white-space: nowrap;
+    }
+
+    .coupon-summary-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding-bottom: 0.55rem;
+        border-bottom: 1px solid var(--line);
+    }
+
+    .coupon-summary-row:last-child {
+        border-bottom: 0;
+        padding-bottom: 0;
+    }
+
+    .coupon-summary-row div {
+        display: grid;
+        gap: 0.15rem;
+        min-width: 0;
+    }
+
+    .coupon-summary-row span,
+    .address-detail {
+        color: var(--muted);
+        font-size: 0.86rem;
+    }
+
+    .coupon-state {
+        flex-shrink: 0;
+        background: var(--paper-deep);
+        color: var(--muted) !important;
+    }
+
+    .coupon-state.is-available {
+        color: #fff8f2 !important;
+        background: var(--accent);
+    }
+
+    .address-summary {
+        margin: 0;
+    }
+
+    .address-detail {
+        margin: 0;
+        line-height: 1.75;
+    }
+
+    .wishlist-covers {
+        display: flex;
+        gap: 0.6rem;
+        flex-wrap: wrap;
+    }
+
+    .cover-thumb {
+        display: block;
+        width: 54px;
+        height: 74px;
+        border-radius: 6px;
+        overflow: hidden;
+        flex-shrink: 0;
+        box-shadow: 0 10px 22px rgba(53, 24, 16, 0.1);
+    }
+
+    .cover-thumb img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .recent-viewed-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(78px, 1fr));
+        gap: 0.75rem;
+    }
+
+    .recent-viewed-item {
+        display: grid;
+        gap: 0.4rem;
+        min-width: 0;
+    }
+
+    .recent-viewed-item img {
+        width: 100%;
+        aspect-ratio: 3 / 4;
+        object-fit: cover;
+        border-radius: 6px;
+        box-shadow: 0 10px 22px rgba(53, 24, 16, 0.1);
+    }
+
+    .recent-viewed-item span {
+        font-size: 0.82rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    @@media (max-width: 1100px) {
+        .account-dashboard,
+        .account-hero-panel,
+        .insight-stage {
+            grid-template-columns: 1fr;
+        }
+
+        .profile-rail {
+            position: static;
+            min-height: auto;
+        }
+
+        .insight-stage {
+            grid-template-areas:
+                "trend"
+                "radar"
+                "preference";
+        }
+
+        .order-panel,
+        .coupon-panel,
+        .address-panel,
+        .wishlist-panel,
+        .viewed-panel {
+            grid-column: span 6;
+        }
+    }
+
+    @@media (max-width: 640px) {
+        .account-metric-strip,
+        .account-workbench {
+            grid-template-columns: 1fr;
+        }
+
+        .order-panel,
+        .coupon-panel,
+        .address-panel,
+        .wishlist-panel,
+        .viewed-panel {
+            grid-column: auto;
+        }
+
+        .order-timeline-row {
+            grid-template-columns: 38px minmax(0, 1fr);
+        }
+
+        .order-timeline-row strong,
+        .order-timeline-row em {
+            grid-column: 2;
+        }
+
+        .line-chart {
+            min-height: 210px;
+        }
+    }
+</style>

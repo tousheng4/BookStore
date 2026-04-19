@@ -1,0 +1,19 @@
+@page
+@model BookStoreSample.Pages.Admin.Products.CreateModel
+@Html.AntiForgeryToken()
+@{
+    ViewData["Title"] = "新增图书";
+}
+
+<section class="admin-panel admin-panel-plain">
+    <div class="section-heading">
+        <div>
+            <span class="section-kicker">新增图书</span>
+            <h1 class="section-title">新增图书</h1>
+        </div>
+    </div>
+    <form method="post">
+        <partial name="_ProductForm" model="Model.Input" />
+        <button type="submit" class="primary-button">保存商品</button>
+    </form>
+</section>

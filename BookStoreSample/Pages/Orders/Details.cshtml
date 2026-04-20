@@ -14,6 +14,7 @@ else
         <article class="tool-row">
             <span class="section-kicker">订单详情</span>
             <h1 class="section-title">订单 #@Model.Order.Id</h1>
+
             <div class="summary-list">
                 <div class="summary-line"><span>收货人</span><strong>@Model.Order.ReceiverName</strong></div>
                 <div class="summary-line"><span>联系电话</span><strong>@Model.Order.ReceiverPhone</strong></div>
@@ -29,7 +30,7 @@ else
 
             @if (!string.IsNullOrWhiteSpace(Model.Order.TrackingNumber) || Model.Order.ShippedAt is not null)
             {
-                <div class="logistics-panel">
+                <div class="info-panel">
                     <h3>物流信息</h3>
                     <div class="summary-list">
                         <div class="summary-line"><span>物流公司</span><strong>@(string.IsNullOrWhiteSpace(Model.Order.TrackingCompany) ? "未填写" : Model.Order.TrackingCompany)</strong></div>
@@ -44,7 +45,7 @@ else
 
             @if (Model.Order.RefundRequestedAt is not null)
             {
-                <div class="refund-panel">
+                <div class="info-panel refund-panel">
                     <h3>退款申请</h3>
                     <div class="summary-list">
                         <div class="summary-line"><span>申请时间</span><strong>@Model.Order.RefundRequestedAt.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</strong></div>
@@ -72,7 +73,7 @@ else
                 <div class="payment-panel">
                     <div>
                         <h3>待支付</h3>
-                        <p>确认收货信息和商品明细后，可使用模拟支付完成订单。</p>
+                        <p>确认收货信息和商品明细后，可以使用模拟支付完成订单。</p>
                     </div>
                     <form method="post" asp-page-handler="Pay">
                         <input type="hidden" name="id" value="@Model.Order.Id" />
@@ -97,27 +98,32 @@ else
 
             @if (Model.CanRequestRefund)
             {
-                <div class="refund-panel">
-                    <h3>申请退款</h3>
+                <details class="refund-disclosure">
+                    <summary>
+                        <span>申请退款</span>
+                        <small>点击后填写退款原因</small>
+                    </summary>
                     <form method="post" asp-page-handler="RequestRefund" class="refund-form">
                         <input type="hidden" name="id" value="@Model.Order.Id" />
                         <div class="form-field">
-                            <label asp-for="Refund.Reason"></label>
+                            <label for="Refund_Reason">退款原因</label>
                             <textarea class="editorial-textarea" asp-for="Refund.Reason" placeholder="请说明退款原因"></textarea>
                         </div>
-                        <button type="submit" class="danger-button">提交退款申请</button>
+                        <div class="refund-actions">
+                            <button type="submit" class="danger-button">提交退款申请</button>
+                        </div>
                     </form>
-                </div>
+                </details>
             }
 
             @if (Model.CanReviewRefund)
             {
-                <div class="refund-panel">
+                <div class="info-panel refund-panel">
                     <h3>审核退款</h3>
                     <form method="post" class="refund-form">
                         <input type="hidden" name="id" value="@Model.Order.Id" />
                         <div class="form-field">
-                            <label asp-for="RefundReview.Note"></label>
+                            <label for="RefundReview_Note">审核说明</label>
                             <textarea class="editorial-textarea" asp-for="RefundReview.Note" placeholder="通过可选填，拒绝时请填写原因"></textarea>
                         </div>
                         <div class="review-actions">
@@ -194,6 +200,7 @@ else
                 </div>
             }
         </article>
+
         <aside class="tool-side">
             <article class="summary-panel summary-panel-plain">
                 <span class="section-kicker">商品明细</span>
@@ -226,7 +233,8 @@ else
 <style>
     .status-badge { color: var(--accent-strong); font-size: 1rem; }
     .payment-panel,
-    .refund-panel {
+    .info-panel,
+    .refund-disclosure {
         display: grid;
         gap: 0.75rem;
         margin-top: 1.5rem;
@@ -243,7 +251,7 @@ else
         flex-wrap: wrap;
     }
     .payment-panel h3,
-    .refund-panel h3 {
+    .info-panel h3 {
         margin: 0;
         font-size: 1rem;
     }
@@ -252,25 +260,44 @@ else
         color: var(--muted);
         font-size: 0.9rem;
     }
+    .refund-disclosure {
+        padding: 0;
+        overflow: hidden;
+    }
+    .refund-disclosure summary {
+        list-style: none;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 1rem;
+        color: #fff8f2;
+        background: var(--accent);
+        cursor: pointer;
+    }
+    .refund-disclosure summary::-webkit-details-marker { display: none; }
+    .refund-disclosure summary span {
+        font-weight: 700;
+    }
+    .refund-disclosure summary small {
+        color: rgba(255, 248, 242, 0.78);
+    }
+    .refund-disclosure[open] summary {
+        border-bottom: 1px solid rgba(255, 248, 242, 0.18);
+    }
     .refund-form {
         display: grid;
         gap: 0.75rem;
+        padding: 1rem;
     }
+    .info-panel .refund-form {
+        padding: 0;
+    }
+    .refund-actions,
     .review-actions {
         display: flex;
         gap: 0.75rem;
         flex-wrap: wrap;
-    }
-    .logistics-panel {
-        margin-top: 1.5rem;
-        padding: 1rem;
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        background: rgba(255, 253, 249, 0.62);
-    }
-    .logistics-panel h3 {
-        margin: 0 0 0.75rem;
-        font-size: 1rem;
     }
     .status-update-form { margin-top: 1.5rem; padding: 1rem 0; border-top: 1px solid var(--line); }
     .status-update-form h3 { margin: 0 0 0.75rem; font-size: 0.9rem; color: var(--muted); }

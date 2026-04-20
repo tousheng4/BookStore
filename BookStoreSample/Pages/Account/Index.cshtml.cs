@@ -2,9 +2,8 @@ using System.Security.Claims;
 using BookStoreSample.Models;
 using BookStoreSample.Services;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace BookStoreSample.Pages.Account;
 
@@ -22,6 +21,7 @@ public class IndexModel(
     public IReadOnlyList<Order> RecentOrders { get; private set; } = [];
     public IReadOnlyList<BookProduct> RecentlyViewedProducts { get; private set; } = [];
     public AccountInsightResult Insights { get; private set; } = new([], [], [], [], 0m, 0, 0, "暂无");
+    public MemberCenterResult Member { get; private set; } = new("普通会员", 0, 0, null, 300, 0, "银卡会员", [], []);
     public bool IsAdmin { get; private set; }
 
     public int AddressCount => Addresses.Count;
@@ -42,7 +42,7 @@ public class IndexModel(
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
         UserInfo = await userManager.FindByIdAsync(userId);
-        IsAdmin = await userManager.IsInRoleAsync(UserInfo!, UserRoles.Admin);
+        IsAdmin = UserInfo is not null && await userManager.IsInRoleAsync(UserInfo, UserRoles.Admin);
         Addresses = await storeService.GetAddressesAsync(userId);
         WishlistItems = await storeService.GetWishlistAsync(userId);
         UserCoupons = await storeService.GetUserCouponsAsync(userId);
@@ -52,6 +52,7 @@ public class IndexModel(
         OrderCount = orders.Count;
         RecentOrders = orders.Take(5).ToList();
         Insights = await storeService.GetAccountInsightsAsync(userId);
+        Member = await storeService.GetMemberCenterAsync(userId);
         RecentlyViewedProducts = await storeService.GetProductsByIdsAsync(GetRecentProductIds().Take(4));
     }
 

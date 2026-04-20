@@ -23,7 +23,12 @@
       "Bash(echo \"PID: $!\")",
       "Bash(netstat -ano)",
       "Bash(taskkill //F //PID 25384)",
-      "Bash(xargs -I{} taskkill //F //PID {})"
+      "Bash(xargs -I{} taskkill //F //PID {})",
+      "Bash(python3 -c ':*)",
+      "Bash(python -c ':*)",
+      "Bash(unzip -p \"大型软件系统设计.docx\" word/document.xml)",
+      "Bash(sed 's/<[^>]*>//g')",
+      "Bash(grep -v '^[[:space:]]*$')"
     ]
   }
 }

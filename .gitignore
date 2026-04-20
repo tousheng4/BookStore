@@ -65,3 +65,7 @@ Published/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Word documents
+*.doc
+*.docx

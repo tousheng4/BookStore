@@ -2,6 +2,9 @@
 @model BookStoreSample.Pages.Admin.Products.IndexModel
 @{
     ViewData["Title"] = "后台商品管理";
+    var pageNumbers = Enumerable.Range(1, Model.TotalPages)
+        .Where(page => page == 1 || page == Model.TotalPages || Math.Abs(page - Model.CurrentPageNumber) <= 2)
+        .ToList();
 }
 
 <section class="admin-panel admin-panel-plain">
@@ -15,6 +18,15 @@
             <a class="primary-button" asp-page="/Admin/Products/Create">新增图书</a>
         </div>
     </div>
+
+    <div class="admin-list-summary">
+        <span>共 @Model.TotalCount 本图书</span>
+        @if (Model.TotalCount > 0)
+        {
+            <span>当前显示 @Model.StartItem - @Model.EndItem</span>
+        }
+    </div>
+
     <table class="admin-table">
         <thead>
         <tr>
@@ -54,7 +66,7 @@
                 </td>
                 <td class="inline-actions">
                     <a class="ghost-button" asp-page="/Admin/Products/Edit" asp-route-id="@product.Id">编辑</a>
-                    <form method="post" asp-page-handler="ToggleActive" asp-route-id="@product.Id" class="inline-form">
+                    <form method="post" asp-page-handler="ToggleActive" asp-route-id="@product.Id" asp-route-currentPage="@Model.CurrentPageNumber" class="inline-form">
                         <button type="submit" class="ghost-button">@(product.IsActive ? "下架" : "上架")</button>
                     </form>
                     <a class="danger-button" asp-page="/Admin/Products/Delete" asp-route-id="@product.Id">删除</a>
@@ -63,6 +75,34 @@
         }
         </tbody>
     </table>
+
+    @if (Model.TotalPages > 1)
+    {
+        <nav class="admin-pagination" aria-label="商品分页导航">
+            <a class="pagination-link @(Model.CurrentPageNumber <= 1 ? "is-disabled" : string.Empty)"
+               asp-page="/Admin/Products/Index"
+               asp-route-currentPage="@(Model.CurrentPageNumber - 1)">上一页</a>
+
+            <div class="pagination-pages">
+                @for (var i = 0; i < pageNumbers.Count; i++)
+                {
+                    if (i > 0 && pageNumbers[i] - pageNumbers[i - 1] > 1)
+                    {
+                        <span class="pagination-ellipsis">…</span>
+                    }
+
+                    var pageNumber = pageNumbers[i];
+                    <a class="pagination-link @(pageNumber == Model.CurrentPageNumber ? "is-current" : string.Empty)"
+                       asp-page="/Admin/Products/Index"
+                       asp-route-currentPage="@pageNumber">@pageNumber</a>
+                }
+            </div>
+
+            <a class="pagination-link @(Model.CurrentPageNumber >= Model.TotalPages ? "is-disabled" : string.Empty)"
+               asp-page="/Admin/Products/Index"
+               asp-route-currentPage="@(Model.CurrentPageNumber + 1)">下一页</a>
+        </nav>
+    }
 </section>
 
 <style>
@@ -71,6 +111,14 @@
         gap: 0.75rem;
         flex-wrap: wrap;
         justify-content: flex-end;
+    }
+
+    .admin-list-summary {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        color: var(--muted);
+        margin-bottom: 1rem;
     }
 
     .low-stock-pill {
@@ -103,5 +151,52 @@
     .status-inactive {
         background: rgba(99, 87, 77, 0.12);
         color: var(--muted);
+    }
+
+    .admin-pagination {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.6rem;
+        flex-wrap: wrap;
+        margin-top: 1.25rem;
+    }
+
+    .pagination-pages {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .pagination-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 2.4rem;
+        min-height: 2.4rem;
+        padding: 0.45rem 0.7rem;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        color: var(--ink);
+        background: rgba(255, 253, 249, 0.7);
+        font-weight: 600;
+    }
+
+    .pagination-link.is-current {
+        background: var(--ink);
+        color: #fff8f2;
+        border-color: var(--ink);
+    }
+
+    .pagination-link.is-disabled {
+        pointer-events: none;
+        opacity: 0.45;
+    }
+
+    .pagination-ellipsis {
+        color: var(--muted);
+        padding: 0 0.2rem;
     }
 </style>

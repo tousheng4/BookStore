@@ -2,6 +2,7 @@
 @model BookStoreSample.Pages.Account.ProfileModel
 @{
     ViewData["Title"] = "编辑资料";
+    var avatarInitial = Model.Input.DisplayName.FirstOrDefault();
 }
 
 <section class="profile-shell">
@@ -18,7 +19,25 @@
         <div class="alert @Model.MessageType">@Model.Message</div>
     }
 
-    <form method="post" class="profile-form">
+    <form method="post" enctype="multipart/form-data" class="profile-form">
+        <div class="avatar-editor">
+            <div class="avatar-preview">
+                @if (!string.IsNullOrWhiteSpace(Model.CurrentAvatarUrl))
+                {
+                    <img src="@Model.CurrentAvatarUrl" alt="当前头像" />
+                }
+                else
+                {
+                    <span>@(avatarInitial == default ? 'U' : avatarInitial)</span>
+                }
+            </div>
+            <div class="avatar-copy">
+                <label asp-for="Input.Avatar"></label>
+                <input class="editorial-input" asp-for="Input.Avatar" type="file" accept="image/*" />
+                <small>支持 JPG、PNG、WEBP、GIF，图片大小不超过 2MB。</small>
+            </div>
+        </div>
+
         <div class="form-field">
             <label asp-for="Input.DisplayName"></label>
             <input class="editorial-input" asp-for="Input.DisplayName" maxlength="40" />
@@ -42,30 +61,74 @@
 </section>
 
 <style>
-    .profile-shell {
-        display: grid;
-        gap: 1.25rem;
-        max-width: 760px;
-    }
+.profile-shell {
+    display: grid;
+    gap: 1.25rem;
+    max-width: 760px;
+}
 
-    .profile-form {
-        display: grid;
-        gap: 1rem;
-        padding: 1.25rem;
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        background: rgba(255, 253, 249, 0.62);
-    }
+.profile-form {
+    display: grid;
+    gap: 1rem;
+    padding: 1.25rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(255, 253, 249, 0.62);
+}
 
-    .profile-actions {
-        display: flex;
-        gap: 0.75rem;
-        flex-wrap: wrap;
-        align-items: center;
-    }
+.avatar-editor {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr);
+    gap: 1rem;
+    align-items: center;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--line);
+}
 
-    .validation-message {
-        color: var(--accent);
-        font-size: 0.85rem;
+.avatar-preview {
+    width: 96px;
+    aspect-ratio: 1;
+    border-radius: 8px;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    background: var(--ink);
+    color: #fff8f2;
+    font-size: 2rem;
+    font-weight: 800;
+}
+
+.avatar-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.avatar-copy {
+    display: grid;
+    gap: 0.5rem;
+}
+
+.avatar-copy small {
+    color: var(--muted);
+    line-height: 1.6;
+}
+
+.profile-actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.validation-message {
+    color: var(--accent);
+    font-size: 0.85rem;
+}
+
+@@media (max-width: 640px) {
+    .avatar-editor {
+        grid-template-columns: 1fr;
     }
+}
 </style>

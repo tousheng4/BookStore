@@ -7,6 +7,9 @@ public class BookReview
     public int ProductId { get; set; }
     public int Rating { get; set; }
     public string Content { get; set; } = string.Empty;
+    public string ImageUrl { get; set; } = string.Empty;
+    public string FollowUpContent { get; set; } = string.Empty;
+    public DateTime? FollowUpAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 

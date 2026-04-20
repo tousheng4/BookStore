@@ -15,6 +15,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<WishlistItem> WishlistItems => Set<WishlistItem>();
     public DbSet<OrderStatusHistory> OrderStatusHistory => Set<OrderStatusHistory>();
     public DbSet<BookReview> BookReviews => Set<BookReview>();
+    public DbSet<BookQuestion> BookQuestions => Set<BookQuestion>();
     public DbSet<Coupon> Coupons => Set<Coupon>();
     public DbSet<UserCoupon> UserCoupons => Set<UserCoupon>();
     public DbSet<UserNotification> UserNotifications => Set<UserNotification>();
@@ -23,6 +24,12 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
+
+        builder.Entity<ApplicationUser>(entity =>
+        {
+            entity.Property(x => x.AvatarUrl).HasMaxLength(500);
+            entity.Property(x => x.MemberLevel).HasMaxLength(40);
+        });
 
         builder.Entity<BookProduct>(entity =>
         {
@@ -117,11 +124,27 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         {
             entity.HasIndex(x => new { x.UserId, x.ProductId }).IsUnique();
             entity.Property(x => x.Content).HasMaxLength(500);
+            entity.Property(x => x.ImageUrl).HasMaxLength(500);
+            entity.Property(x => x.FollowUpContent).HasMaxLength(500);
             entity.HasOne(x => x.User)
                 .WithMany(x => x.Reviews)
                 .HasForeignKey(x => x.UserId);
             entity.HasOne(x => x.Product)
                 .WithMany(x => x.Reviews)
+                .HasForeignKey(x => x.ProductId);
+        });
+
+        builder.Entity<BookQuestion>(entity =>
+        {
+            entity.Property(x => x.Question).HasMaxLength(500);
+            entity.Property(x => x.Answer).HasMaxLength(500);
+            entity.Property(x => x.AnsweredBy).HasMaxLength(100);
+            entity.HasIndex(x => new { x.ProductId, x.CreatedAt });
+            entity.HasOne(x => x.User)
+                .WithMany(x => x.Questions)
+                .HasForeignKey(x => x.UserId);
+            entity.HasOne(x => x.Product)
+                .WithMany(x => x.Questions)
                 .HasForeignKey(x => x.ProductId);
         });
 

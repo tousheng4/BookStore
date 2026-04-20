@@ -2,6 +2,9 @@
 @model BookStoreSample.Pages.Admin.Inventory.IndexModel
 @{
     ViewData["Title"] = "库存流水";
+    var pageNumbers = Enumerable.Range(1, Model.TotalPages)
+        .Where(page => page == 1 || page == Model.TotalPages || Math.Abs(page - Model.CurrentPageNumber) <= 2)
+        .ToList();
 }
 
 <section class="admin-panel admin-panel-plain">
@@ -14,6 +17,14 @@
             <a class="ghost-button" asp-page="/Admin/Index">后台看板</a>
             <a class="ghost-button" asp-page="/Admin/Products/Index">商品管理</a>
         </div>
+    </div>
+
+    <div class="admin-list-summary">
+        <span>共 @Model.TotalCount 条库存记录</span>
+        @if (Model.TotalCount > 0)
+        {
+            <span>当前显示 @Model.StartItem - @Model.EndItem</span>
+        }
     </div>
 
     @if (Model.Logs.Count == 0)
@@ -64,6 +75,34 @@
             }
             </tbody>
         </table>
+
+        @if (Model.TotalPages > 1)
+        {
+            <nav class="admin-pagination" aria-label="库存流水分页导航">
+                <a class="pagination-link @(Model.CurrentPageNumber <= 1 ? "is-disabled" : string.Empty)"
+                   asp-page="/Admin/Inventory/Index"
+                   asp-route-currentPage="@(Model.CurrentPageNumber - 1)">上一页</a>
+
+                <div class="pagination-pages">
+                    @for (var i = 0; i < pageNumbers.Count; i++)
+                    {
+                        if (i > 0 && pageNumbers[i] - pageNumbers[i - 1] > 1)
+                        {
+                            <span class="pagination-ellipsis">…</span>
+                        }
+
+                        var pageNumber = pageNumbers[i];
+                        <a class="pagination-link @(pageNumber == Model.CurrentPageNumber ? "is-current" : string.Empty)"
+                           asp-page="/Admin/Inventory/Index"
+                           asp-route-currentPage="@pageNumber">@pageNumber</a>
+                    }
+                </div>
+
+                <a class="pagination-link @(Model.CurrentPageNumber >= Model.TotalPages ? "is-disabled" : string.Empty)"
+                   asp-page="/Admin/Inventory/Index"
+                   asp-route-currentPage="@(Model.CurrentPageNumber + 1)">下一页</a>
+            </nav>
+        }
     }
 </section>
 
@@ -85,6 +124,14 @@
         justify-content: flex-end;
     }
 
+    .admin-list-summary {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        color: var(--muted);
+        margin-bottom: 1rem;
+    }
+
     .stock-negative {
         color: var(--accent-strong);
         font-weight: 700;
@@ -97,5 +144,52 @@
 
     .muted-text {
         color: var(--muted);
+    }
+
+    .admin-pagination {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.6rem;
+        flex-wrap: wrap;
+        margin-top: 1.25rem;
+    }
+
+    .pagination-pages {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .pagination-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 2.4rem;
+        min-height: 2.4rem;
+        padding: 0.45rem 0.7rem;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        color: var(--ink);
+        background: rgba(255, 253, 249, 0.7);
+        font-weight: 600;
+    }
+
+    .pagination-link.is-current {
+        background: var(--ink);
+        color: #fff8f2;
+        border-color: var(--ink);
+    }
+
+    .pagination-link.is-disabled {
+        pointer-events: none;
+        opacity: 0.45;
+    }
+
+    .pagination-ellipsis {
+        color: var(--muted);
+        padding: 0 0.2rem;
     }
 </style>

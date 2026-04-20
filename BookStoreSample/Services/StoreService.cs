@@ -13,6 +13,24 @@ public class StoreService(ApplicationDbContext dbContext)
             .ToListAsync();
     }
 
+    public async Task<PagedProductsResult> GetAdminProductsAsync(int page = 1, int pageSize = 12)
+    {
+        var query = dbContext.Products.AsNoTracking()
+            .OrderByDescending(product => product.CreatedAt);
+
+        var totalCount = await query.CountAsync();
+        var safePageSize = Math.Max(1, pageSize);
+        var totalPages = Math.Max(1, (int)Math.Ceiling(totalCount / (double)safePageSize));
+        var currentPage = Math.Min(Math.Max(1, page), totalPages);
+
+        var items = await query
+            .Skip((currentPage - 1) * safePageSize)
+            .Take(safePageSize)
+            .ToListAsync();
+
+        return new PagedProductsResult(items, totalCount, currentPage, safePageSize);
+    }
+
     public async Task<PagedProductsResult> GetProductsAsync(
         string? keyword = null,
         int page = 1,
@@ -229,6 +247,104 @@ public class StoreService(ApplicationDbContext dbContext)
             .ToList();
     }
 
+    public async Task<BookAssistantResponse> AskBookAssistantAsync(string? question, string? userId = null, int take = 3)
+    {
+        var queryText = (question ?? string.Empty).Trim();
+        var safeTake = Math.Max(1, take);
+        var products = await dbContext.Products
+            .AsNoTracking()
+            .Include(product => product.Reviews)
+            .Where(product => product.IsActive)
+            .ToListAsync();
+
+        if (products.Count == 0)
+        {
+            return new BookAssistantResponse(
+                "书店里暂时还没有可推荐的图书。",
+                []);
+        }
+
+        var globalSalesItems = await dbContext.OrderItems
+            .AsNoTracking()
+            .Include(item => item.Order)
+            .Where(item =>
+                item.Order != null &&
+                (item.Order.Status == OrderStatuses.Paid ||
+                 item.Order.Status == OrderStatuses.Shipped ||
+                 item.Order.Status == OrderStatuses.Received ||
+                 item.Order.Status == OrderStatuses.Completed))
+            .ToListAsync();
+        var globalSales = globalSalesItems
+            .GroupBy(item => item.ProductId)
+            .ToDictionary(group => group.Key, group => group.Sum(item => item.Quantity));
+
+        var preferredCategories = await GetUserPreferredCategoriesAsync(userId);
+        var intent = BuildAssistantIntent(queryText);
+        var scoredProducts = products
+            .Select(product =>
+            {
+                globalSales.TryGetValue(product.Id, out var salesCount);
+                var reviewCount = product.Reviews.Count;
+                var averageRating = reviewCount == 0 ? 0 : product.Reviews.Average(review => review.Rating);
+                var score = ScoreAssistantProduct(product, queryText, intent, preferredCategories, salesCount, averageRating, reviewCount);
+                return new
+                {
+                    Product = product,
+                    Score = score,
+                    SalesCount = salesCount,
+                    AverageRating = averageRating,
+                    ReviewCount = reviewCount
+                };
+            })
+            .Where(item => item.Score > 0)
+            .OrderByDescending(item => item.Score)
+            .ThenByDescending(item => item.AverageRating)
+            .ThenByDescending(item => item.SalesCount)
+            .ThenByDescending(item => item.Product.CreatedAt)
+            .Take(safeTake)
+            .ToList();
+
+        if (scoredProducts.Count == 0)
+        {
+            scoredProducts = products
+                .Select(product =>
+                {
+                    globalSales.TryGetValue(product.Id, out var salesCount);
+                    var reviewCount = product.Reviews.Count;
+                    var averageRating = reviewCount == 0 ? 0 : product.Reviews.Average(review => review.Rating);
+                    return new
+                    {
+                        Product = product,
+                        Score = (decimal)(salesCount * 2 + averageRating + (product.Stock > 0 ? 1 : 0)),
+                        SalesCount = salesCount,
+                        AverageRating = averageRating,
+                        ReviewCount = reviewCount
+                    };
+                })
+                .OrderByDescending(item => item.Score)
+                .ThenByDescending(item => item.Product.CreatedAt)
+                .Take(safeTake)
+                .ToList();
+        }
+
+        var suggestions = scoredProducts
+            .Select(item => new BookAssistantSuggestion(
+                item.Product.Id,
+                item.Product.Title,
+                item.Product.Author,
+                item.Product.Category,
+                item.Product.CoverUrl,
+                item.Product.Price,
+                BuildAssistantReason(item.Product, intent, item.AverageRating, item.ReviewCount, item.SalesCount)))
+            .ToList();
+
+        var message = string.IsNullOrWhiteSpace(queryText)
+            ? "可以告诉我你想读的主题、预算、难度或用途。我先按当前书店里比较值得看的书给你几本。"
+            : $"我按“{queryText}”帮你挑了 {suggestions.Count} 本，可以先看这几本。";
+
+        return new BookAssistantResponse(message, suggestions);
+    }
+
     public async Task<AccountInsightResult> GetAccountInsightsAsync(string userId)
     {
         var insightStatuses = new[]
@@ -296,6 +412,61 @@ public class StoreService(ApplicationDbContext dbContext)
             orders.Count,
             purchasedBookCount,
             favoriteCategory);
+    }
+
+    public async Task<MemberCenterResult> GetMemberCenterAsync(string userId)
+    {
+        var user = await dbContext.Users.AsNoTracking().FirstOrDefaultAsync(item => item.Id == userId);
+        if (user is null)
+        {
+            return new MemberCenterResult(
+                "普通会员",
+                0,
+                0,
+                null,
+                300,
+                0,
+                "银卡会员",
+                GetMemberBenefits("普通会员"),
+                []);
+        }
+
+        var memberOrders = await dbContext.Orders
+            .AsNoTracking()
+            .Where(order =>
+                order.UserId == userId &&
+                (order.Status == OrderStatuses.Paid ||
+                 order.Status == OrderStatuses.Shipped ||
+                 order.Status == OrderStatuses.Received ||
+                 order.Status == OrderStatuses.Completed))
+            .OrderByDescending(order => order.CreatedAt)
+            .Take(5)
+            .ToListAsync();
+
+        var normalizedLevel = BuildMemberLevel(user.MemberGrowth);
+        var (nextLevel, nextGrowth) = GetNextMemberLevel(user.MemberGrowth);
+        var currentLevelStart = GetMemberLevelStart(user.MemberGrowth);
+        var progress = nextGrowth is null
+            ? 100
+            : (int)Math.Clamp(
+                (user.MemberGrowth - currentLevelStart) * 100m / Math.Max(1, nextGrowth.Value - currentLevelStart),
+                0m,
+                100m);
+
+        return new MemberCenterResult(
+            normalizedLevel,
+            user.MemberPoints,
+            user.MemberGrowth,
+            user.MembershipStartedAt,
+            nextGrowth,
+            progress,
+            nextLevel,
+            GetMemberBenefits(normalizedLevel),
+            memberOrders.Select(order => new MemberOrderReward(
+                order.Id,
+                order.TotalAmount,
+                (int)Math.Floor(order.TotalAmount),
+                order.CreatedAt)).ToList());
     }
 
     public async Task<List<BookProduct>> GetFeaturedProductsAsync(int take = 4) =>
@@ -405,6 +576,65 @@ public class StoreService(ApplicationDbContext dbContext)
             .Where(item => item.UserId == userId)
             .OrderByDescending(item => item.AddedAt)
             .ToListAsync();
+    }
+
+    public async Task<OrderBoosterResult> GetOrderBoosterAsync(string userId, decimal cartTotal, IEnumerable<int> cartProductIds, int take = 4)
+    {
+        var now = DateTime.UtcNow;
+        var productIds = cartProductIds.ToHashSet();
+        var safeTake = Math.Max(1, take);
+        var userCouponIds = await dbContext.UserCoupons
+            .AsNoTracking()
+            .Where(item => item.UserId == userId && item.UsedAt == null)
+            .Select(item => item.CouponId)
+            .ToListAsync();
+        var claimedCouponIds = userCouponIds.ToHashSet();
+
+        var coupons = await dbContext.Coupons
+            .AsNoTracking()
+            .Where(coupon =>
+                coupon.IsActive &&
+                coupon.StartsAt <= now &&
+                coupon.EndsAt >= now &&
+                coupon.MinimumAmount > cartTotal)
+            .ToListAsync();
+
+        var targetCoupon = coupons
+            .Select(coupon => new
+            {
+                Coupon = coupon,
+                IsClaimed = claimedCouponIds.Contains(coupon.Id),
+                Gap = coupon.MinimumAmount - cartTotal
+            })
+            .OrderByDescending(item => item.IsClaimed)
+            .ThenBy(item => item.Gap)
+            .ThenByDescending(item => item.Coupon.DiscountAmount)
+            .FirstOrDefault();
+
+        if (targetCoupon is null)
+        {
+            return new OrderBoosterResult(null, 0m, false, []);
+        }
+
+        var gap = targetCoupon.Gap;
+        var candidates = await dbContext.Products
+            .AsNoTracking()
+            .Where(product => product.IsActive && product.Stock > 0 && !productIds.Contains(product.Id))
+            .ToListAsync();
+
+        var suggestions = candidates
+            .Select(product => new OrderBoosterSuggestion(
+                product,
+                Math.Max(0m, gap - product.Price),
+                product.Price >= gap))
+            .OrderByDescending(item => item.ReachesTarget)
+            .ThenBy(item => item.RemainingGap)
+            .ThenBy(item => Math.Abs(item.Product.Price - gap))
+            .ThenByDescending(item => item.Product.SalesCount)
+            .Take(safeTake)
+            .ToList();
+
+        return new OrderBoosterResult(targetCoupon.Coupon, gap, targetCoupon.IsClaimed, suggestions);
     }
 
     public async Task<bool> AddToCartAsync(string userId, int productId, int quantity)
@@ -587,6 +817,76 @@ public class StoreService(ApplicationDbContext dbContext)
             item => new ReviewSummary(item.Count, item.Average));
     }
 
+    public async Task<List<BookQuestion>> GetQuestionsAsync(int productId)
+    {
+        return await dbContext.BookQuestions
+            .AsNoTracking()
+            .Include(question => question.User)
+            .Where(question => question.ProductId == productId)
+            .OrderByDescending(question => question.CreatedAt)
+            .ToListAsync();
+    }
+
+    public async Task<bool> AskQuestionAsync(string userId, int productId, string question)
+    {
+        var productExists = await dbContext.Products
+            .AnyAsync(product => product.Id == productId && product.IsActive);
+        if (!productExists)
+        {
+            return false;
+        }
+
+        var trimmedQuestion = (question ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(trimmedQuestion))
+        {
+            return false;
+        }
+
+        dbContext.BookQuestions.Add(new BookQuestion
+        {
+            UserId = userId,
+            ProductId = productId,
+            Question = trimmedQuestion.Length > 500 ? trimmedQuestion[..500] : trimmedQuestion,
+            CreatedAt = DateTime.UtcNow
+        });
+
+        await AddAdminNotificationAsync(
+            "新的读者提问",
+            "有读者在图书详情页提交了新问题，请及时查看并回答。",
+            "BookQuestion",
+            $"/Products/Details/{productId}");
+        await dbContext.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> AnswerQuestionAsync(int questionId, string answeredBy, string answer)
+    {
+        var question = await dbContext.BookQuestions
+            .FirstOrDefaultAsync(item => item.Id == questionId);
+        if (question is null)
+        {
+            return false;
+        }
+
+        var trimmedAnswer = (answer ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(trimmedAnswer))
+        {
+            return false;
+        }
+
+        question.Answer = trimmedAnswer.Length > 500 ? trimmedAnswer[..500] : trimmedAnswer;
+        question.AnsweredBy = answeredBy;
+        question.AnsweredAt = DateTime.UtcNow;
+        AddUserNotification(
+            question.UserId,
+            "你的提问已收到回答",
+            "你在图书详情页提交的问题已经有人回答，快去看看吧。",
+            "BookQuestionAnswered",
+            $"/Products/Details/{question.ProductId}");
+        await dbContext.SaveChangesAsync();
+        return true;
+    }
+
     public async Task<bool> CanReviewProductAsync(string userId, int productId)
     {
         var reviewableStatuses = new[] { OrderStatuses.Paid, OrderStatuses.Shipped, OrderStatuses.Received, OrderStatuses.Completed };
@@ -600,7 +900,7 @@ public class StoreService(ApplicationDbContext dbContext)
                 reviewableStatuses.Contains(item.Order.Status));
     }
 
-    public async Task<bool> SaveReviewAsync(string userId, int productId, int rating, string content)
+    public async Task<bool> SaveReviewAsync(string userId, int productId, int rating, string content, string imageUrl = "")
     {
         if (rating is < 1 or > 5)
         {
@@ -629,6 +929,7 @@ public class StoreService(ApplicationDbContext dbContext)
                 ProductId = productId,
                 Rating = rating,
                 Content = trimmedContent,
+                ImageUrl = imageUrl ?? string.Empty,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             });
@@ -637,6 +938,10 @@ public class StoreService(ApplicationDbContext dbContext)
         {
             existing.Rating = rating;
             existing.Content = trimmedContent;
+            if (!string.IsNullOrWhiteSpace(imageUrl))
+            {
+                existing.ImageUrl = imageUrl;
+            }
             existing.UpdatedAt = DateTime.UtcNow;
         }
 
@@ -645,6 +950,34 @@ public class StoreService(ApplicationDbContext dbContext)
             "评价已发布",
             "感谢你的反馈，评价已展示在图书详情页。",
             "Review",
+            $"/Products/Details/{productId}");
+        await dbContext.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> SaveReviewFollowUpAsync(string userId, int productId, string content)
+    {
+        var review = await dbContext.BookReviews
+            .FirstOrDefaultAsync(item => item.UserId == userId && item.ProductId == productId);
+        if (review is null)
+        {
+            return false;
+        }
+
+        var trimmedContent = (content ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(trimmedContent))
+        {
+            return false;
+        }
+
+        review.FollowUpContent = trimmedContent.Length > 500 ? trimmedContent[..500] : trimmedContent;
+        review.FollowUpAt = DateTime.UtcNow;
+        review.UpdatedAt = DateTime.UtcNow;
+        AddUserNotification(
+            userId,
+            "追评已发布",
+            "你的追加评价已展示在图书详情页。",
+            "ReviewFollowUp",
             $"/Products/Details/{productId}");
         await dbContext.SaveChangesAsync();
         return true;
@@ -819,6 +1152,96 @@ public class StoreService(ApplicationDbContext dbContext)
         return true;
     }
 
+    public async Task<List<CouponManageItem>> GetCouponsAsync()
+    {
+        var coupons = await dbContext.Coupons
+            .AsNoTracking()
+            .Include(c => c.UserCoupons)
+            .OrderByDescending(c => c.CreatedAt)
+            .ToListAsync();
+
+        return coupons.Select(c => new CouponManageItem(
+            c,
+            c.UserCoupons.Count,
+            c.UserCoupons.Count(uc => uc.UsedAt is not null),
+            c.UserCoupons.Count(uc => uc.UsedAt is null)
+        )).ToList();
+    }
+
+    public async Task<PagedCouponsResult> GetPagedCouponsAsync(int page = 1, int pageSize = 12)
+    {
+        var query = dbContext.Coupons
+            .AsNoTracking()
+            .Include(c => c.UserCoupons)
+            .OrderByDescending(c => c.CreatedAt);
+
+        var totalCount = await query.CountAsync();
+        var safePageSize = Math.Max(1, pageSize);
+        var totalPages = Math.Max(1, (int)Math.Ceiling(totalCount / (double)safePageSize));
+        var currentPage = Math.Min(Math.Max(1, page), totalPages);
+
+        var coupons = await query
+            .Skip((currentPage - 1) * safePageSize)
+            .Take(safePageSize)
+            .ToListAsync();
+
+        var items = coupons.Select(c => new CouponManageItem(
+            c,
+            c.UserCoupons.Count,
+            c.UserCoupons.Count(uc => uc.UsedAt is not null),
+            c.UserCoupons.Count(uc => uc.UsedAt is null)
+        )).ToList();
+
+        return new PagedCouponsResult(items, totalCount, currentPage, safePageSize);
+    }
+
+    public async Task<Coupon?> GetCouponAsync(int id)
+    {
+        return await dbContext.Coupons.FirstOrDefaultAsync(c => c.Id == id);
+    }
+
+    public async Task AddCouponAsync(Coupon coupon)
+    {
+        dbContext.Coupons.Add(coupon);
+        await dbContext.SaveChangesAsync();
+    }
+
+    public async Task<bool> UpdateCouponAsync(Coupon input)
+    {
+        var coupon = await dbContext.Coupons.FirstOrDefaultAsync(c => c.Id == input.Id);
+        if (coupon is null) return false;
+
+        coupon.Name = input.Name;
+        coupon.Code = input.Code;
+        coupon.MinimumAmount = input.MinimumAmount;
+        coupon.DiscountAmount = input.DiscountAmount;
+        coupon.IsActive = input.IsActive;
+        coupon.StartsAt = input.StartsAt;
+        coupon.EndsAt = input.EndsAt;
+        await dbContext.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> DeleteCouponAsync(int id)
+    {
+        var coupon = await dbContext.Coupons.FirstOrDefaultAsync(c => c.Id == id);
+        if (coupon is null) return false;
+
+        dbContext.Coupons.Remove(coupon);
+        await dbContext.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> ToggleCouponActiveAsync(int id)
+    {
+        var coupon = await dbContext.Coupons.FirstOrDefaultAsync(c => c.Id == id);
+        if (coupon is null) return false;
+
+        coupon.IsActive = !coupon.IsActive;
+        await dbContext.SaveChangesAsync();
+        return true;
+    }
+
     public async Task<Order?> CreateOrderAsync(
         string userId,
         string receiverName,
@@ -931,6 +1354,8 @@ public class StoreService(ApplicationDbContext dbContext)
             selectedCoupon.UsedAt = DateTime.UtcNow;
             selectedCoupon.OrderId = order.Id;
         }
+
+        await AwardMembershipAsync(userId, order);
 
         await dbContext.SaveChangesAsync();
 
@@ -1330,6 +1755,269 @@ public class StoreService(ApplicationDbContext dbContext)
             .ToListAsync();
     }
 
+    public async Task<PagedInventoryLogsResult> GetPagedInventoryChangeLogsAsync(int page = 1, int pageSize = 12)
+    {
+        var query = dbContext.InventoryChangeLogs
+            .AsNoTracking()
+            .Include(log => log.Product)
+            .Include(log => log.Order)
+            .OrderByDescending(log => log.ChangedAt);
+
+        var totalCount = await query.CountAsync();
+        var safePageSize = Math.Max(1, pageSize);
+        var totalPages = Math.Max(1, (int)Math.Ceiling(totalCount / (double)safePageSize));
+        var currentPage = Math.Min(Math.Max(1, page), totalPages);
+
+        var items = await query
+            .Skip((currentPage - 1) * safePageSize)
+            .Take(safePageSize)
+            .ToListAsync();
+
+        return new PagedInventoryLogsResult(items, totalCount, currentPage, safePageSize);
+    }
+
+    private async Task<HashSet<string>> GetUserPreferredCategoriesAsync(string? userId)
+    {
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return [];
+        }
+
+        var preferredItems = await dbContext.OrderItems
+            .AsNoTracking()
+            .Include(item => item.Order)
+            .Include(item => item.Product)
+            .Where(item =>
+                item.Order != null &&
+                item.Product != null &&
+                item.Order.UserId == userId &&
+                (item.Order.Status == OrderStatuses.Paid ||
+                 item.Order.Status == OrderStatuses.Shipped ||
+                 item.Order.Status == OrderStatuses.Received ||
+                 item.Order.Status == OrderStatuses.Completed))
+            .ToListAsync();
+
+        return preferredItems
+            .GroupBy(item => item.Product!.Category)
+            .OrderByDescending(group => group.Sum(item => item.Quantity))
+            .Take(3)
+            .Select(group => group.Key)
+            .ToHashSet();
+    }
+
+    private static BookAssistantIntent BuildAssistantIntent(string queryText)
+    {
+        var text = queryText.ToLowerInvariant();
+        var categories = new HashSet<string>();
+        if (text.Contains("编程") || text.Contains("开发") || text.Contains("代码") || text.Contains("程序"))
+        {
+            categories.Add("编程开发");
+        }
+        if (text.Contains("ai") || text.Contains("人工智能") || text.Contains("机器学习") || text.Contains("深度学习"))
+        {
+            categories.Add("人工智能");
+        }
+        if (text.Contains("小说") || text.Contains("文学") || text.Contains("故事"))
+        {
+            categories.Add("文学小说");
+        }
+        if (text.Contains("商业") || text.Contains("管理") || text.Contains("创业") || text.Contains("运营"))
+        {
+            categories.Add("商业管理");
+        }
+        if (text.Contains("设计") || text.Contains("审美") || text.Contains("创意"))
+        {
+            categories.Add("设计创意");
+        }
+        if (text.Contains("历史") || text.Contains("人文") || text.Contains("文化"))
+        {
+            categories.Add("历史人文");
+        }
+        if (text.Contains("教材") || text.Contains("考试") || text.Contains("教辅") || text.Contains("学习"))
+        {
+            categories.Add("教材教辅");
+        }
+
+        return new BookAssistantIntent(
+            categories,
+            text.Contains("便宜") || text.Contains("低价") || text.Contains("预算") || text.Contains("入门") || text.Contains("新手"),
+            text.Contains("进阶") || text.Contains("深入") || text.Contains("高级") || text.Contains("专业"),
+            text.Contains("热门") || text.Contains("畅销") || text.Contains("大家都买"),
+            text.Contains("最新") || text.Contains("新书") || text.Contains("刚上架"));
+    }
+
+    private static decimal ScoreAssistantProduct(
+        BookProduct product,
+        string queryText,
+        BookAssistantIntent intent,
+        HashSet<string> preferredCategories,
+        int salesCount,
+        double averageRating,
+        int reviewCount)
+    {
+        var score = 0m;
+        var text = queryText.ToLowerInvariant();
+        var searchable = $"{product.Title} {product.Author} {product.Publisher} {product.Category} {product.Description}".ToLowerInvariant();
+        var tokens = text.Split(
+            [' ', ',', '，', '。', '?', '？', '、', ';', '；'],
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        foreach (var token in tokens.Where(token => token.Length > 1))
+        {
+            if (searchable.Contains(token))
+            {
+                score += 8;
+            }
+        }
+
+        if (intent.Categories.Contains(product.Category))
+        {
+            score += 34;
+        }
+        if (preferredCategories.Contains(product.Category))
+        {
+            score += 8;
+        }
+        if (intent.WantsCheap && product.Price <= 80)
+        {
+            score += 10;
+        }
+        if (intent.WantsAdvanced && (product.Description.Contains("进阶") || product.Description.Contains("深入") || product.Title.Contains("高级")))
+        {
+            score += 10;
+        }
+        if (intent.WantsPopular)
+        {
+            score += salesCount * 3;
+        }
+        else
+        {
+            score += Math.Min(salesCount, 20);
+        }
+        if (intent.WantsNew)
+        {
+            score += product.CreatedAt >= DateTime.UtcNow.AddMonths(-3) ? 12 : 0;
+        }
+
+        score += (decimal)averageRating * 2;
+        score += Math.Min(reviewCount, 10);
+        score += product.Stock > 0 ? 4 : -20;
+        return score;
+    }
+
+    private static string BuildAssistantReason(BookProduct product, BookAssistantIntent intent, double averageRating, int reviewCount, int salesCount)
+    {
+        var reasons = new List<string>();
+        if (intent.Categories.Contains(product.Category))
+        {
+            reasons.Add($"匹配你提到的“{product.Category}”方向");
+        }
+        if (averageRating > 0)
+        {
+            reasons.Add($"评分 {averageRating:0.0}");
+        }
+        if (salesCount > 0)
+        {
+            reasons.Add($"已有 {salesCount} 次成交");
+        }
+        if (reviewCount > 0 && reasons.Count < 3)
+        {
+            reasons.Add($"{reviewCount} 条评价可参考");
+        }
+        if (reasons.Count == 0)
+        {
+            reasons.Add("主题和当前问题比较接近");
+        }
+
+        return string.Join("，", reasons.Take(3));
+    }
+
+    private async Task AwardMembershipAsync(string userId, Order order)
+    {
+        var user = await dbContext.Users.FirstOrDefaultAsync(item => item.Id == userId);
+        if (user is null)
+        {
+            return;
+        }
+
+        var growthToAdd = (int)Math.Floor(order.TotalAmount);
+        if (growthToAdd <= 0)
+        {
+            return;
+        }
+
+        var oldLevel = BuildMemberLevel(user.MemberGrowth);
+        user.MemberPoints += growthToAdd;
+        user.MemberGrowth += growthToAdd;
+        user.MembershipStartedAt ??= DateTime.UtcNow;
+        user.MemberLevel = BuildMemberLevel(user.MemberGrowth);
+
+        AddUserNotification(
+            userId,
+            "会员积分到账",
+            $"本次下单获得 {growthToAdd} 积分，当前等级为 {user.MemberLevel}。",
+            "MembershipPoints",
+            "/Account/Membership");
+
+        if (user.MemberLevel != oldLevel)
+        {
+            AddUserNotification(
+                userId,
+                "会员等级已升级",
+                $"恭喜升级为 {user.MemberLevel}，新的会员权益已经生效。",
+                "MembershipLevelUp",
+                "/Account/Membership");
+        }
+    }
+
+    private static string BuildMemberLevel(int growth)
+    {
+        if (growth >= 2000) return "黑钻会员";
+        if (growth >= 1000) return "金卡会员";
+        if (growth >= 300) return "银卡会员";
+        return "普通会员";
+    }
+
+    private static int GetMemberLevelStart(int growth)
+    {
+        if (growth >= 2000) return 2000;
+        if (growth >= 1000) return 1000;
+        if (growth >= 300) return 300;
+        return 0;
+    }
+
+    private static (string? Level, int? Growth) GetNextMemberLevel(int growth)
+    {
+        if (growth < 300) return ("银卡会员", 300);
+        if (growth < 1000) return ("金卡会员", 1000);
+        if (growth < 2000) return ("黑钻会员", 2000);
+        return (null, null);
+    }
+
+    private static IReadOnlyList<MemberBenefit> GetMemberBenefits(string level)
+    {
+        var baseBenefits = new List<MemberBenefit>
+        {
+            new("积分回馈", "每消费 1 元获得 1 积分，可用于后续活动兑换。"),
+            new("会员提醒", "积分到账、等级升级会通过通知中心提醒。")
+        };
+
+        if (level is "银卡会员" or "金卡会员" or "黑钻会员")
+        {
+            baseBenefits.Add(new MemberBenefit("优先凑单", "购物袋凑单助手会优先匹配可用优惠门槛。"));
+        }
+        if (level is "金卡会员" or "黑钻会员")
+        {
+            baseBenefits.Add(new MemberBenefit("专属推荐", "根据历史订单偏好强化猜你喜欢和 AI 选书推荐。"));
+        }
+        if (level is "黑钻会员")
+        {
+            baseBenefits.Add(new MemberBenefit("高阶权益", "适合后续扩展生日券、会员专享券和专属客服。"));
+        }
+
+        return baseBenefits;
+    }
+
     private void AddUserNotification(
         string userId,
         string title,
@@ -1442,6 +2130,59 @@ public sealed record ReviewSummary(int Count, double AverageRating)
 
 public sealed record CouponClaimItem(Coupon Coupon, bool IsClaimed);
 
+public sealed record OrderBoosterResult(
+    Coupon? TargetCoupon,
+    decimal GapAmount,
+    bool IsClaimed,
+    IReadOnlyList<OrderBoosterSuggestion> Suggestions);
+
+public sealed record OrderBoosterSuggestion(
+    BookProduct Product,
+    decimal RemainingGap,
+    bool ReachesTarget);
+
+public sealed record BookAssistantResponse(string Message, IReadOnlyList<BookAssistantSuggestion> Suggestions);
+
+public sealed record BookAssistantSuggestion(
+    int Id,
+    string Title,
+    string Author,
+    string Category,
+    string CoverUrl,
+    decimal Price,
+    string Reason);
+
+public sealed record BookAssistantIntent(
+    HashSet<string> Categories,
+    bool WantsCheap,
+    bool WantsAdvanced,
+    bool WantsPopular,
+    bool WantsNew);
+public sealed record CouponManageItem(
+    Coupon Coupon,
+    int TotalClaimed,
+    int TotalUsed,
+    int TotalUnused
+);
+
+public sealed record PagedCouponsResult(
+    IReadOnlyList<CouponManageItem> Items,
+    int TotalCount,
+    int Page,
+    int PageSize)
+{
+    public int TotalPages => Math.Max(1, (int)Math.Ceiling(TotalCount / (double)PageSize));
+}
+
+public sealed record PagedInventoryLogsResult(
+    IReadOnlyList<InventoryChangeLog> Items,
+    int TotalCount,
+    int Page,
+    int PageSize)
+{
+    public int TotalPages => Math.Max(1, (int)Math.Ceiling(TotalCount / (double)PageSize));
+}
+
 public sealed record AccountInsightResult(
     IReadOnlyList<AccountChartItem> MonthlyOrders,
     IReadOnlyList<AccountChartItem> MonthlySpend,
@@ -1479,6 +2220,21 @@ public sealed record AccountInsightResult(
         }));
     }
 }
+
+public sealed record MemberCenterResult(
+    string Level,
+    int Points,
+    int Growth,
+    DateTime? StartedAt,
+    int? NextLevelGrowth,
+    int ProgressPercent,
+    string? NextLevelName,
+    IReadOnlyList<MemberBenefit> Benefits,
+    IReadOnlyList<MemberOrderReward> RecentRewards);
+
+public sealed record MemberBenefit(string Title, string Description);
+
+public sealed record MemberOrderReward(int OrderId, decimal Amount, int Points, DateTime CreatedAt);
 
 public sealed record AccountChartItem(string Label, decimal Value, string DisplayValue)
 {

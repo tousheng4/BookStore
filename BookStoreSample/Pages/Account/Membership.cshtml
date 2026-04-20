@@ -1,0 +1,325 @@
+@page
+@model BookStoreSample.Pages.Account.MembershipModel
+@{
+    ViewData["Title"] = "会员中心";
+    var nextText = Model.Member.NextLevelGrowth is null
+        ? "已达到最高等级"
+        : $"距离 {Model.Member.NextLevelName} 还差 {Model.Member.NextLevelGrowth.Value - Model.Member.Growth} 成长值";
+}
+
+<section class="membership-shell">
+    <article class="member-hero">
+        <div class="member-hero-copy">
+            <span class="section-kicker">Membership</span>
+            <h1>@Model.Member.Level</h1>
+            <p>下单会自动累积积分和成长值。积分到账、等级升级都会进入通知中心。</p>
+        </div>
+        <div class="member-card">
+            <span>当前积分</span>
+            <strong>@Model.Member.Points</strong>
+            <small>@(Model.Member.StartedAt is null ? "还未激活会员消费记录" : $"会员始于 {Model.Member.StartedAt.Value.ToLocalTime():yyyy-MM-dd}")</small>
+        </div>
+    </article>
+
+    <section class="member-progress-panel">
+        <div class="panel-title-row">
+            <div>
+                <span class="section-kicker">Growth</span>
+                <h2>成长进度</h2>
+            </div>
+            <span class="member-level-chip">@nextText</span>
+        </div>
+        <div class="member-progress-track">
+            <i style="width:@Model.Member.ProgressPercent%"></i>
+        </div>
+        <div class="member-progress-meta">
+            <span>成长值 @Model.Member.Growth</span>
+            @if (Model.Member.NextLevelGrowth is not null)
+            {
+                <span>下一等级 @Model.Member.NextLevelGrowth</span>
+            }
+            else
+            {
+                <span>最高等级</span>
+            }
+        </div>
+    </section>
+
+    <section class="member-grid">
+        <article class="member-panel">
+            <div class="panel-title-row">
+                <div>
+                    <span class="section-kicker">Benefits</span>
+                    <h2>会员权益</h2>
+                </div>
+            </div>
+            <div class="benefit-list">
+                @foreach (var benefit in Model.Member.Benefits)
+                {
+                    <div class="benefit-item">
+                        <strong>@benefit.Title</strong>
+                        <p>@benefit.Description</p>
+                    </div>
+                }
+            </div>
+        </article>
+
+        <article class="member-panel">
+            <div class="panel-title-row">
+                <div>
+                    <span class="section-kicker">Rewards</span>
+                    <h2>最近积分</h2>
+                </div>
+                <a asp-page="/Orders/Index" class="ghost-button">查看订单</a>
+            </div>
+
+            @if (Model.Member.RecentRewards.Count == 0)
+            {
+                <p class="muted-text">完成第一笔订单后，这里会显示积分到账记录。</p>
+            }
+            else
+            {
+                <div class="reward-list">
+                    @foreach (var reward in Model.Member.RecentRewards)
+                    {
+                        <a class="reward-row" asp-page="/Orders/Details" asp-route-id="@reward.OrderId">
+                            <div>
+                                <strong>订单 #@reward.OrderId</strong>
+                                <span>@reward.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
+                            </div>
+                            <span>￥@reward.Amount.ToString("0.00")</span>
+                            <em>+@reward.Points 积分</em>
+                        </a>
+                    }
+                </div>
+            }
+        </article>
+    </section>
+
+    <section class="member-rules">
+        <span class="section-kicker">Rules</span>
+        <h2>等级规则</h2>
+        <div class="rule-grid">
+            <div><strong>普通会员</strong><span>0 成长值起</span></div>
+            <div><strong>银卡会员</strong><span>300 成长值起</span></div>
+            <div><strong>金卡会员</strong><span>1000 成长值起</span></div>
+            <div><strong>黑钻会员</strong><span>2000 成长值起</span></div>
+        </div>
+    </section>
+</section>
+
+<style>
+.membership-shell {
+    display: grid;
+    gap: 1rem;
+}
+
+.member-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 0.36fr);
+    gap: 1rem;
+    align-items: stretch;
+}
+
+.member-hero,
+.member-progress-panel,
+.member-panel,
+.member-rules {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(255, 251, 245, 0.78);
+    box-shadow: var(--shadow);
+}
+
+.member-hero {
+    padding: 1.2rem;
+    background:
+        linear-gradient(90deg, rgba(255, 251, 245, 0.94), rgba(255, 251, 245, 0.68)),
+        url("https://images.unsplash.com/photo-1519682337058-a94d519337bc?auto=format&fit=crop&w=1400&q=80") center/cover;
+}
+
+.member-hero-copy h1 {
+    margin: 0.25rem 0 0.45rem;
+    font-size: clamp(2.3rem, 5vw, 4.5rem);
+    line-height: 1;
+}
+
+.member-hero-copy p,
+.benefit-item p,
+.muted-text {
+    margin: 0;
+    color: var(--muted);
+    line-height: 1.8;
+}
+
+.member-card {
+    display: grid;
+    align-content: space-between;
+    gap: 0.8rem;
+    min-height: 180px;
+    padding: 1rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(255, 253, 249, 0.86);
+}
+
+.member-card span,
+.member-card small,
+.member-progress-meta,
+.reward-row span {
+    color: var(--muted);
+}
+
+.member-card strong {
+    color: var(--accent);
+    font-size: 3rem;
+    line-height: 1;
+}
+
+.member-progress-panel,
+.member-panel,
+.member-rules {
+    padding: 1rem;
+}
+
+.panel-title-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: start;
+}
+
+.panel-title-row h2 {
+    margin: 0.15rem 0 0;
+    font-size: 1.25rem;
+}
+
+.member-level-chip {
+    padding: 0.25rem 0.6rem;
+    border-radius: 8px;
+    background: var(--paper-deep);
+    color: var(--accent-strong);
+    font-size: 0.86rem;
+    font-weight: 700;
+}
+
+.member-progress-track {
+    height: 14px;
+    margin-top: 1rem;
+    border-radius: 8px;
+    background: var(--paper-deep);
+    overflow: hidden;
+}
+
+.member-progress-track i {
+    display: block;
+    height: 100%;
+    border-radius: 8px;
+    background: var(--accent);
+}
+
+.member-progress-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 0.55rem;
+    font-size: 0.9rem;
+}
+
+.member-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+    gap: 1rem;
+}
+
+.member-panel {
+    display: grid;
+    gap: 1rem;
+}
+
+.benefit-list,
+.reward-list,
+.rule-grid {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.benefit-item,
+.reward-row,
+.rule-grid div {
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--line);
+}
+
+.benefit-item:last-child,
+.reward-row:last-child,
+.rule-grid div:last-child {
+    border-bottom: 0;
+    padding-bottom: 0;
+}
+
+.benefit-item strong,
+.reward-row strong,
+.rule-grid strong {
+    color: var(--ink);
+}
+
+.reward-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.reward-row div {
+    display: grid;
+    gap: 0.15rem;
+    min-width: 0;
+}
+
+.reward-row em {
+    color: var(--accent);
+    font-style: normal;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.member-rules {
+    display: grid;
+    gap: 0.8rem;
+}
+
+.member-rules h2 {
+    margin: 0;
+}
+
+.rule-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.rule-grid div {
+    display: grid;
+    gap: 0.25rem;
+    padding: 0.75rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(255, 253, 249, 0.64);
+}
+
+.rule-grid span {
+    color: var(--muted);
+    font-size: 0.88rem;
+}
+
+@@media (max-width: 900px) {
+    .member-hero,
+    .member-grid,
+    .rule-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .reward-row {
+        grid-template-columns: 1fr;
+    }
+}
+</style>

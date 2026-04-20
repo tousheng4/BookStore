@@ -82,4 +82,13 @@ public class IndexModel(StoreService storeService) : PageModel
 
         return RedirectToPage(new { Keyword, CurrentPage, Category, MinPrice, MaxPrice, SortBy, ReviewedOnly });
     }
+
+    public async Task<IActionResult> OnPostAskAssistantAsync(string question)
+    {
+        var userId = User.Identity?.IsAuthenticated == true
+            ? User.FindFirstValue(ClaimTypes.NameIdentifier)
+            : null;
+        var response = await storeService.AskBookAssistantAsync(question, userId, 3);
+        return new JsonResult(response);
+    }
 }

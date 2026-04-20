@@ -1,0 +1,56 @@
+@page "{id:int}"
+@model BookStoreSample.Pages.Admin.Coupons.DeleteModel
+@{
+    ViewData["Title"] = "删除优惠券";
+}
+
+<section class="admin-panel admin-panel-plain">
+    <div class="section-heading">
+        <div>
+            <span class="section-kicker">营销工具</span>
+            <h1 class="section-title">删除优惠券</h1>
+        </div>
+    </div>
+
+    @if (Model.Coupon is null)
+    {
+        <div class="alert error">未找到该优惠券。</div>
+    }
+    else
+    {
+        <div class="delete-confirm">
+            <p>确定要删除优惠券 <strong>@Model.Coupon.Name</strong>（@Model.Coupon.Code）吗？</p>
+            <p class="warning-text">此操作不可恢复。</p>
+
+            @if (!string.IsNullOrEmpty(Model.Message))
+            {
+                <p class="alert error">@Model.Message</p>
+            }
+
+            <div class="form-actions">
+                <form method="post" asp-page-handler="Delete">
+                    <input type="hidden" name="id" value="@Model.Coupon.Id" />
+                    <button type="submit" class="danger-button">确认删除</button>
+                </form>
+                <a class="ghost-button" asp-page="/Admin/Coupons/Index">取消</a>
+            </div>
+        </div>
+    }
+</section>
+
+<style>
+    .delete-confirm {
+        max-width: 480px;
+        padding: 1.5rem 0;
+    }
+
+    .delete-confirm p { margin: 0 0 0.5rem; }
+
+    .warning-text { color: var(--accent-strong); font-weight: 600; }
+
+    .form-actions {
+        display: flex;
+        gap: 0.75rem;
+        margin-top: 1.25rem;
+    }
+</style>

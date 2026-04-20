@@ -11,10 +11,23 @@ namespace BookStoreSample.Pages.Admin.Products;
 public class IndexModel(StoreService storeService, IWebHostEnvironment env) : PageModel
 {
     public IReadOnlyList<BookProduct> Products { get; private set; } = [];
+    public int TotalCount { get; private set; }
+    public int CurrentPageNumber { get; private set; } = 1;
+    public int PageSize { get; } = 12;
+    public int TotalPages { get; private set; } = 1;
+    public int StartItem => TotalCount == 0 ? 0 : (CurrentPageNumber - 1) * PageSize + 1;
+    public int EndItem => Math.Min(CurrentPageNumber * PageSize, TotalCount);
+
+    [BindProperty(SupportsGet = true)]
+    public int CurrentPage { get; set; } = 1;
 
     public async Task OnGetAsync()
     {
-        Products = await storeService.GetProductsAsync();
+        var pagedResult = await storeService.GetAdminProductsAsync(CurrentPage, PageSize);
+        Products = pagedResult.Items;
+        TotalCount = pagedResult.TotalCount;
+        CurrentPageNumber = pagedResult.Page;
+        TotalPages = pagedResult.TotalPages;
     }
 
     public async Task<IActionResult> OnPostUploadCoverAsync()
@@ -59,6 +72,6 @@ public class IndexModel(StoreService storeService, IWebHostEnvironment env) : Pa
         }
 
         await storeService.SetProductActiveAsync(id, !product.IsActive);
-        return RedirectToPage();
+        return RedirectToPage(new { CurrentPage });
     }
 }

@@ -2,6 +2,9 @@
 @model BookStoreSample.Pages.Admin.Reviews.IndexModel
 @{
     ViewData["Title"] = "评价管理";
+    var pageNumbers = Enumerable.Range(1, Model.TotalPages)
+        .Where(page => page == 1 || page == Model.TotalPages || Math.Abs(page - Model.CurrentPageNumber) <= 2)
+        .ToList();
 }
 
 <section class="review-admin">
@@ -50,6 +53,14 @@
         <a asp-page="/Admin/Reviews/Index" class="ghost-button">重置</a>
     </form>
 
+    <div class="admin-list-summary">
+        <span>共 @Model.TotalCount 条评价</span>
+        @if (Model.TotalCount > 0)
+        {
+            <span>当前显示 @Model.StartItem - @Model.EndItem</span>
+        }
+    </div>
+
     @if (Model.Reviews.Count == 0)
     {
         <div class="empty-state">没有找到评价。</div>
@@ -81,11 +92,46 @@
                     <form method="post" asp-page-handler="Delete" asp-route-id="@review.Id" class="review-delete-form">
                         <input type="hidden" name="Keyword" value="@Model.Keyword" />
                         <input type="hidden" name="Rating" value="@Model.Rating" />
+                        <input type="hidden" name="CurrentPage" value="@Model.CurrentPageNumber" />
                         <button type="submit" class="danger-button">删除</button>
                     </form>
                 </article>
             }
         </div>
+
+        @if (Model.TotalPages > 1)
+        {
+            <nav class="admin-pagination" aria-label="评价分页导航">
+                <a class="pagination-link @(Model.CurrentPageNumber <= 1 ? "is-disabled" : string.Empty)"
+                   asp-page="/Admin/Reviews/Index"
+                   asp-route-keyword="@Model.Keyword"
+                   asp-route-rating="@Model.Rating"
+                   asp-route-currentPage="@(Model.CurrentPageNumber - 1)">上一页</a>
+
+                <div class="pagination-pages">
+                    @for (var i = 0; i < pageNumbers.Count; i++)
+                    {
+                        if (i > 0 && pageNumbers[i] - pageNumbers[i - 1] > 1)
+                        {
+                            <span class="pagination-ellipsis">…</span>
+                        }
+
+                        var pageNumber = pageNumbers[i];
+                        <a class="pagination-link @(pageNumber == Model.CurrentPageNumber ? "is-current" : string.Empty)"
+                           asp-page="/Admin/Reviews/Index"
+                           asp-route-keyword="@Model.Keyword"
+                           asp-route-rating="@Model.Rating"
+                           asp-route-currentPage="@pageNumber">@pageNumber</a>
+                    }
+                </div>
+
+                <a class="pagination-link @(Model.CurrentPageNumber >= Model.TotalPages ? "is-disabled" : string.Empty)"
+                   asp-page="/Admin/Reviews/Index"
+                   asp-route-keyword="@Model.Keyword"
+                   asp-route-rating="@Model.Rating"
+                   asp-route-currentPage="@(Model.CurrentPageNumber + 1)">下一页</a>
+            </nav>
+        }
     }
 </section>
 
@@ -110,6 +156,13 @@
 
     .review-filter-form .filter-input:first-child {
         min-width: min(420px, 100%);
+    }
+
+    .admin-list-summary {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        color: var(--muted);
     }
 
     .review-admin-metrics {
@@ -209,6 +262,53 @@
 
     .review-delete-form {
         margin: 0;
+    }
+
+    .admin-pagination {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.6rem;
+        flex-wrap: wrap;
+        margin-top: 0.5rem;
+    }
+
+    .pagination-pages {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .pagination-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 2.4rem;
+        min-height: 2.4rem;
+        padding: 0.45rem 0.7rem;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        color: var(--ink);
+        background: rgba(255, 253, 249, 0.7);
+        font-weight: 600;
+    }
+
+    .pagination-link.is-current {
+        background: var(--ink);
+        color: #fff8f2;
+        border-color: var(--ink);
+    }
+
+    .pagination-link.is-disabled {
+        pointer-events: none;
+        opacity: 0.45;
+    }
+
+    .pagination-ellipsis {
+        color: var(--muted);
+        padding: 0 0.2rem;
     }
 
     @@media (max-width: 900px) {

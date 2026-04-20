@@ -29,7 +29,7 @@ else
                 <span>评分 @Model.ReviewSummary.AverageText (@Model.ReviewSummary.Count)</span>
             </div>
             <div class="purchase-strip">
-                <span class="product-price">￥@Model.Product.Price</span>
+                <span class="product-price">￥@Model.Product.Price.ToString("0.00")</span>
             </div>
 
             @if (!string.IsNullOrWhiteSpace(Model.Message))
@@ -66,6 +66,78 @@ else
         </article>
     </section>
 
+    <section class="qa-section">
+        <div class="section-heading">
+            <div>
+                <span class="section-kicker">Q&A</span>
+                <h2>读者问答</h2>
+            </div>
+            <span class="qa-count">@Model.Questions.Count 条问题</span>
+        </div>
+
+        @if (User.Identity?.IsAuthenticated == true)
+        {
+            <form method="post" asp-page-handler="Question" asp-route-id="@Model.Product.Id" class="qa-form">
+                <div class="form-field">
+                    <label asp-for="Question.Content"></label>
+                    <textarea class="editorial-textarea" asp-for="Question.Content" maxlength="500" placeholder="比如：这本书适合零基础吗？有没有配套案例？"></textarea>
+                    <span asp-validation-for="Question.Content" class="field-validation-error"></span>
+                </div>
+                <button type="submit" class="primary-button">提交问题</button>
+            </form>
+        }
+        else
+        {
+            <p class="review-hint">
+                <a asp-page="/Account/Login" class="text-link">登录</a> 后可以向其他读者或管理员提问。
+            </p>
+        }
+
+        @if (Model.Questions.Count == 0)
+        {
+            <p class="review-empty">还没有读者提问，可以先问一个你关心的问题。</p>
+        }
+        else
+        {
+            <div class="qa-list">
+                @foreach (var question in Model.Questions)
+                {
+                    <article class="qa-item">
+                        <div class="qa-question">
+                            <strong>问</strong>
+                            <div>
+                                <p>@question.Question</p>
+                                <small>@(question.User?.DisplayName ?? question.User?.UserName ?? "读者") · @question.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</small>
+                            </div>
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(question.Answer))
+                        {
+                            <div class="qa-answer">
+                                <strong>答</strong>
+                                <div>
+                                    <p>@question.Answer</p>
+                                    <small>@question.AnsweredBy · @question.AnsweredAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</small>
+                                </div>
+                            </div>
+                        }
+                        else if (Model.IsAdmin)
+                        {
+                            <form method="post" asp-page-handler="AnswerQuestion" asp-route-id="@Model.Product.Id" class="qa-answer-form">
+                                <input type="hidden" asp-for="Answer.QuestionId" value="@question.Id" />
+                                <textarea class="editorial-textarea" asp-for="Answer.Content" maxlength="500" placeholder="填写回答内容"></textarea>
+                                <button type="submit" class="primary-button">发布回答</button>
+                            </form>
+                        }
+                        else
+                        {
+                            <p class="qa-pending">这个问题还在等待回答。</p>
+                        }
+                    </article>
+                }
+            </div>
+        }
+    </section>
+
     <section class="review-section">
         <div class="section-heading">
             <div>
@@ -80,23 +152,57 @@ else
 
         @if (Model.CanReview)
         {
-            <form method="post" asp-page-handler="Review" asp-route-id="@Model.Product.Id" class="review-form">
-                <div class="form-field">
-                    <label asp-for="Review.Rating"></label>
-                    <select class="editorial-select" asp-for="Review.Rating">
-                        <option value="5">5 星，很值得</option>
-                        <option value="4">4 星，推荐</option>
-                        <option value="3">3 星，还可以</option>
-                        <option value="2">2 星，一般</option>
-                        <option value="1">1 星，不太满意</option>
-                    </select>
+            <form method="post" enctype="multipart/form-data" asp-page-handler="Review" asp-route-id="@Model.Product.Id" class="review-form">
+                <div class="form-grid">
+                    <div class="form-field">
+                        <label asp-for="Review.Rating"></label>
+                        <select class="editorial-select" asp-for="Review.Rating">
+                            <option value="5">5 星，很值得</option>
+                            <option value="4">4 星，推荐</option>
+                            <option value="3">3 星，还可以</option>
+                            <option value="2">2 星，一般</option>
+                            <option value="1">1 星，不太满意</option>
+                        </select>
+                    </div>
+                    <div class="form-field">
+                        <label asp-for="Review.Image"></label>
+                        <input class="editorial-input" asp-for="Review.Image" type="file" accept="image/*" />
+                        @if (!string.IsNullOrWhiteSpace(Model.UserReview?.ImageUrl))
+                        {
+                            <small class="review-hint">重新上传会替换当前晒图。</small>
+                        }
+                    </div>
                 </div>
                 <div class="form-field">
                     <label asp-for="Review.Content"></label>
                     <textarea class="editorial-textarea" asp-for="Review.Content" maxlength="500" placeholder="写下你的阅读感受"></textarea>
+                    <span asp-validation-for="Review.Content" class="field-validation-error"></span>
                 </div>
                 <button type="submit" class="primary-button">@(Model.UserReview is null ? "发布评价" : "更新评价")</button>
             </form>
+
+            @if (Model.UserReview is not null)
+            {
+                @if (string.IsNullOrWhiteSpace(Model.UserReview.FollowUpContent))
+                {
+                    <form method="post" asp-page-handler="FollowUp" asp-route-id="@Model.Product.Id" class="followup-form">
+                        <div class="form-field">
+                            <label asp-for="FollowUp.Content"></label>
+                            <textarea class="editorial-textarea" asp-for="FollowUp.Content" maxlength="500" placeholder="读完一段时间后，补充一点新的感受"></textarea>
+                            <span asp-validation-for="FollowUp.Content" class="field-validation-error"></span>
+                        </div>
+                        <button type="submit" class="secondary-button">发布追评</button>
+                    </form>
+                }
+                else
+                {
+                    <div class="review-followup self-followup">
+                        <strong>你的追评</strong>
+                        <p>@Model.UserReview.FollowUpContent</p>
+                        <small>@Model.UserReview.FollowUpAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</small>
+                    </div>
+                }
+            }
         }
         else if (User.Identity?.IsAuthenticated == true)
         {
@@ -126,6 +232,18 @@ else
                         @if (!string.IsNullOrWhiteSpace(review.Content))
                         {
                             <p>@review.Content</p>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(review.ImageUrl))
+                        {
+                            <img class="review-photo" src="@review.ImageUrl" alt="@(review.User?.DisplayName ?? review.User?.UserName ?? "读者") 的晒图" loading="lazy" />
+                        }
+                        @if (!string.IsNullOrWhiteSpace(review.FollowUpContent))
+                        {
+                            <div class="review-followup">
+                                <strong>追评</strong>
+                                <p>@review.FollowUpContent</p>
+                                <small>@review.FollowUpAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</small>
+                            </div>
                         }
                         <small>@review.UpdatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</small>
                     </article>
@@ -185,7 +303,7 @@ else
 <script>
 async function toggleWishlist(productId) {
     var btn = document.getElementById('wishlist-toggle');
-    var isWishlisted = btn.innerText.includes('已');
+    var isWishlisted = btn.innerText.includes('已收藏');
     var url = '/Products/Details/' + productId + '?handler=ToggleWishlist';
 
     try {
@@ -204,6 +322,62 @@ async function toggleWishlist(productId) {
         window.location.href = url;
     }
 }
+
+document.addEventListener('DOMContentLoaded', function () {
+    var labels = new Map([
+        ['qa-form', { closed: '发布读者问答', opened: '收起读者问答' }],
+        ['review-form', { closed: '发布评价', opened: '收起评价' }],
+        ['followup-form', { closed: '发布追评', opened: '收起追评' }]
+    ]);
+
+    document.querySelectorAll('.qa-form, .review-form, .followup-form').forEach(function (form) {
+        var className = Array.from(labels.keys()).find(function (name) {
+            return form.classList.contains(name);
+        });
+
+        form.classList.add('js-collapsible-form');
+        form.dataset.closedLabel = labels.get(className)?.closed || '发布';
+        form.dataset.openedLabel = labels.get(className)?.opened || '收起';
+        form.dataset.expandLabel = form.dataset.closedLabel;
+        form.setAttribute('aria-expanded', 'false');
+        form.tabIndex = 0;
+
+        var setExpanded = function (expanded) {
+            form.classList.toggle('is-expanded', expanded);
+            form.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+            form.dataset.expandLabel = expanded ? form.dataset.openedLabel : form.dataset.closedLabel;
+        };
+
+        var toggle = function () {
+            var nextExpanded = !form.classList.contains('is-expanded');
+            setExpanded(nextExpanded);
+
+            var firstField = form.querySelector('textarea, select, input:not([type="hidden"])');
+            if (nextExpanded && firstField) {
+                firstField.focus();
+            }
+        };
+
+        form.addEventListener('click', function (event) {
+            if (event.target !== form) {
+                return;
+            }
+
+            toggle();
+        });
+
+        form.addEventListener('keydown', function (event) {
+            if (event.target !== form) {
+                return;
+            }
+
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                toggle();
+            }
+        });
+    });
+});
 </script>
 
 <style>
@@ -214,14 +388,151 @@ async function toggleWishlist(productId) {
     margin-top: 0.75rem;
 }
 
-.product-rail {
+.product-rail,
+.review-section,
+.qa-section {
     margin-top: 3rem;
 }
 
-.review-section {
-    margin-top: 3rem;
+.review-section,
+.qa-section {
     display: grid;
     gap: 1rem;
+}
+
+.qa-count {
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+.qa-form,
+.review-form,
+.followup-form {
+    display: grid;
+    gap: 1rem;
+    padding: 1rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(255, 253, 249, 0.62);
+}
+
+.js-collapsible-form {
+    cursor: pointer;
+    position: relative;
+}
+
+.js-collapsible-form::before {
+    content: attr(data-expand-label);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 2.75rem;
+    color: var(--ink);
+    font-weight: 700;
+}
+
+.js-collapsible-form::after {
+    content: "+";
+    position: absolute;
+    right: 1rem;
+    top: 1.6rem;
+    color: var(--accent);
+    font-size: 1.2rem;
+    line-height: 1;
+}
+
+.js-collapsible-form:not(.is-expanded) > * {
+    display: none;
+}
+
+.js-collapsible-form.is-expanded::after {
+    content: "-";
+}
+
+.qa-form button,
+.review-form button,
+.followup-form button {
+    justify-self: start;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+}
+
+.qa-list,
+.review-list {
+    display: grid;
+    gap: 0.85rem;
+}
+
+.qa-item,
+.review-item {
+    display: grid;
+    gap: 0.7rem;
+    padding-bottom: 0.9rem;
+    border-bottom: 1px solid var(--line);
+}
+
+.qa-item:last-child,
+.review-item:last-child {
+    border-bottom: 0;
+}
+
+.qa-question,
+.qa-answer {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    gap: 0.75rem;
+}
+
+.qa-question > strong,
+.qa-answer > strong {
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    border-radius: 8px;
+    background: var(--ink);
+    color: #fff8f2;
+}
+
+.qa-answer > strong {
+    background: var(--accent);
+}
+
+.qa-question p,
+.qa-answer p,
+.review-item p,
+.review-followup p {
+    margin: 0;
+    color: var(--ink);
+    line-height: 1.8;
+}
+
+.qa-question small,
+.qa-answer small,
+.review-item small,
+.review-score span,
+.review-hint,
+.review-empty,
+.qa-pending {
+    color: var(--muted);
+}
+
+.qa-answer-form {
+    display: grid;
+    gap: 0.6rem;
+    margin-left: 49px;
+}
+
+.qa-answer-form button {
+    justify-self: start;
+}
+
+.qa-pending {
+    margin: 0 0 0 49px;
 }
 
 .review-score {
@@ -234,41 +545,6 @@ async function toggleWishlist(productId) {
     color: var(--accent);
     font-size: 1.8rem;
     line-height: 1;
-}
-
-.review-score span,
-.review-hint,
-.review-empty {
-    color: var(--muted);
-}
-
-.review-form {
-    display: grid;
-    gap: 1rem;
-    padding: 1rem;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    background: rgba(255, 253, 249, 0.62);
-}
-
-.review-form button {
-    justify-self: start;
-}
-
-.review-list {
-    display: grid;
-    gap: 0.85rem;
-}
-
-.review-item {
-    display: grid;
-    gap: 0.45rem;
-    padding-bottom: 0.85rem;
-    border-bottom: 1px solid var(--line);
-}
-
-.review-item:last-child {
-    border-bottom: 0;
 }
 
 .review-item-head {
@@ -284,14 +560,26 @@ async function toggleWishlist(productId) {
     letter-spacing: 0;
 }
 
-.review-item p {
-    margin: 0;
-    color: var(--ink);
-    line-height: 1.8;
+.review-photo {
+    width: min(220px, 100%);
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid var(--line);
 }
 
-.review-item small {
-    color: var(--muted);
+.review-followup {
+    display: grid;
+    gap: 0.35rem;
+    padding: 0.8rem;
+    border-left: 3px solid var(--accent);
+    background: rgba(255, 253, 249, 0.7);
+}
+
+.self-followup {
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
 }
 
 .product-rail h2 {

@@ -20,4 +20,5 @@ public class BookProduct
     public ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
     public ICollection<WishlistItem> WishlistItems { get; set; } = new List<WishlistItem>();
     public ICollection<BookReview> Reviews { get; set; } = new List<BookReview>();
+    public ICollection<BookQuestion> Questions { get; set; } = new List<BookQuestion>();
 }

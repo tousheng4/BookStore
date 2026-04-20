@@ -16,41 +16,6 @@
             <h1 class="catalog-hero-title">书店</h1>
             <p class="catalog-hero-text">从技术、文学到设计与商业，按主题慢慢挑，也可以直接搜索你已经想找的那一本。</p>
         </div>
-        <form method="get" class="filter-form" role="search">
-            <div class="filter-row">
-                <input class="filter-input" type="text" asp-for="Keyword" placeholder="输入书名、作者或分类" />
-                <select class="filter-input" asp-for="Category">
-                    <option value="">全部分类</option>
-                    <option value="编程开发">编程开发</option>
-                    <option value="人工智能">人工智能</option>
-                    <option value="文学小说">文学小说</option>
-                    <option value="商业管理">商业管理</option>
-                    <option value="设计创意">设计创意</option>
-                    <option value="历史人文">历史人文</option>
-                    <option value="教材教辅">教材教辅</option>
-                </select>
-                <select class="filter-input" asp-for="SortBy">
-                    <option value="newest">最新上架</option>
-                    <option value="price_asc">价格 ↑</option>
-                    <option value="price_desc">价格 ↓</option>
-                    <option value="sales">销量最高</option>
-                    <option value="rating">评分最高</option>
-                    <option value="stock">库存最多</option>
-                </select>
-            </div>
-            <div class="filter-row">
-                <label class="price-filter-label">价格区间：</label>
-                <input class="filter-input price-input" type="number" asp-for="MinPrice" placeholder="最低价" min="0" step="1" />
-                <span>—</span>
-                <input class="filter-input price-input" type="number" asp-for="MaxPrice" placeholder="最高价" min="0" step="1" />
-                <label class="review-filter">
-                    <input type="checkbox" asp-for="ReviewedOnly" />
-                    只看有评价
-                </label>
-                <button type="submit" class="primary-button">筛选</button>
-                <a asp-page="/Products/Index" class="ghost-button">重置</a>
-            </div>
-        </form>
     </article>
 
     <section class="catalog-coupon-strip" aria-label="优惠券">
@@ -114,6 +79,51 @@
             </div>
         </section>
     }
+
+    <section class="catalog-filter-panel" aria-label="筛选目录">
+        <div class="filter-panel-head">
+            <div>
+                <span class="section-kicker">筛选目录</span>
+                <h2>按条件找书</h2>
+            </div>
+            <span>搜索、分类、价格和评价都可以一起用</span>
+        </div>
+        <form method="get" class="filter-form" role="search">
+            <div class="filter-row">
+                <input class="filter-input" type="text" asp-for="Keyword" placeholder="输入书名、作者或分类" />
+                <select class="filter-input" asp-for="Category">
+                    <option value="">全部分类</option>
+                    <option value="编程开发">编程开发</option>
+                    <option value="人工智能">人工智能</option>
+                    <option value="文学小说">文学小说</option>
+                    <option value="商业管理">商业管理</option>
+                    <option value="设计创意">设计创意</option>
+                    <option value="历史人文">历史人文</option>
+                    <option value="教材教辅">教材教辅</option>
+                </select>
+                <select class="filter-input" asp-for="SortBy">
+                    <option value="newest">最新上架</option>
+                    <option value="price_asc">价格 ↑</option>
+                    <option value="price_desc">价格 ↓</option>
+                    <option value="sales">销量最高</option>
+                    <option value="rating">评分最高</option>
+                    <option value="stock">库存最多</option>
+                </select>
+            </div>
+            <div class="filter-row">
+                <label class="price-filter-label">价格区间：</label>
+                <input class="filter-input price-input" type="number" asp-for="MinPrice" placeholder="最低价" min="0" step="1" />
+                <span>—</span>
+                <input class="filter-input price-input" type="number" asp-for="MaxPrice" placeholder="最高价" min="0" step="1" />
+                <label class="review-filter">
+                    <input type="checkbox" asp-for="ReviewedOnly" />
+                    只看有评价
+                </label>
+                <button type="submit" class="primary-button">筛选</button>
+                <a asp-page="/Products/Index" class="ghost-button">重置</a>
+            </div>
+        </form>
+    </section>
 
     <section class="catalog-summary" aria-label="检索结果">
         <div class="catalog-summary-line">
@@ -235,6 +245,58 @@
     }
 </section>
 
+<button type="button" class="assistant-fab" id="assistantLauncher" aria-label="打开 AI 选书助手" aria-expanded="false">
+    <span class="assistant-robot">
+        <span class="robot-antenna"></span>
+        <span class="robot-face">
+            <i></i>
+            <i></i>
+        </span>
+    </span>
+    <span>选书助手</span>
+</button>
+
+<section class="assistant-floating-panel" id="assistantPanel" aria-label="AI 选书助手" aria-hidden="true">
+    <div class="book-assistant">
+        <div class="assistant-head">
+            <div>
+                <span class="assistant-kicker">AI 选书助手</span>
+                <h2>问我想读什么</h2>
+            </div>
+            <div class="assistant-window-actions">
+                <span class="assistant-status">站内书库匹配</span>
+                <button type="button" id="assistantClose" aria-label="关闭 AI 选书助手">×</button>
+            </div>
+        </div>
+        <div class="assistant-console">
+            <aside class="assistant-history-panel">
+                <div class="assistant-history-head">
+                    <span>聊天记录</span>
+                    <button type="button" id="newAssistantChat">新对话</button>
+                </div>
+                <div class="assistant-history-list" id="assistantHistoryList"></div>
+                <button type="button" class="assistant-clear-button" id="clearAssistantHistory">清空记录</button>
+            </aside>
+            <div class="assistant-chat-panel">
+                <div class="assistant-messages" id="assistantMessages" aria-live="polite">
+                    <div class="assistant-message assistant-message-ai">
+                        <p>告诉我你的目标、兴趣或预算，我会从当前书店里挑几本合适的书。</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="assistant-prompts" aria-label="快捷问题">
+            <button type="button" data-question="我想入门人工智能，有什么书适合新手？">AI 入门</button>
+            <button type="button" data-question="推荐几本适合提升编程能力的书">提升编程</button>
+            <button type="button" data-question="我想看轻松一点的文学小说">文学小说</button>
+        </div>
+        <form class="assistant-form" id="assistantForm">
+            <input id="assistantQuestion" name="question" type="text" autocomplete="off" placeholder="例如：想学机器学习，预算低一点" />
+            <button type="submit" class="primary-button">询问</button>
+        </form>
+    </div>
+</section>
+
 <script>
 async function toggleWishlist(btn, productId) {
     var isWishlisted = btn.getAttribute('data-wishlisted') === 'true';
@@ -262,9 +324,575 @@ async function toggleWishlist(btn, productId) {
         window.location.href = url;
     }
 }
+
+var assistantForm = document.getElementById('assistantForm');
+var assistantQuestion = document.getElementById('assistantQuestion');
+var assistantMessages = document.getElementById('assistantMessages');
+var assistantHistoryList = document.getElementById('assistantHistoryList');
+var clearAssistantHistoryButton = document.getElementById('clearAssistantHistory');
+var newAssistantChatButton = document.getElementById('newAssistantChat');
+var assistantLauncher = document.getElementById('assistantLauncher');
+var assistantPanel = document.getElementById('assistantPanel');
+var assistantClose = document.getElementById('assistantClose');
+var assistantHistoryKey = 'bookstoreAssistantHistory';
+var assistantHistory = loadAssistantHistory();
+var assistantActiveIndex = assistantHistory.length - 1;
+
+function appendAssistantMessage(text, type) {
+    var message = document.createElement('div');
+    message.className = 'assistant-message assistant-message-' + type;
+    var paragraph = document.createElement('p');
+    paragraph.textContent = text;
+    message.appendChild(paragraph);
+    assistantMessages.appendChild(message);
+    assistantMessages.scrollTop = assistantMessages.scrollHeight;
+    return message;
+}
+
+function appendAssistantSuggestions(suggestions) {
+    if (!suggestions || suggestions.length === 0) {
+        return;
+    }
+
+    var list = document.createElement('div');
+    list.className = 'assistant-suggestions';
+    suggestions.forEach(function (book) {
+        var card = document.createElement('a');
+        card.className = 'assistant-suggestion';
+        card.href = '/Products/Details/' + book.id;
+
+        var image = document.createElement('img');
+        image.src = book.coverUrl || '';
+        image.alt = book.title;
+
+        var body = document.createElement('div');
+        var category = document.createElement('span');
+        category.textContent = book.category;
+        var title = document.createElement('strong');
+        title.textContent = book.title;
+        var meta = document.createElement('small');
+        meta.textContent = book.author + ' · ￥' + Number(book.price).toFixed(2);
+        var reason = document.createElement('p');
+        reason.textContent = book.reason;
+
+        body.appendChild(category);
+        body.appendChild(title);
+        body.appendChild(meta);
+        body.appendChild(reason);
+        card.appendChild(image);
+        card.appendChild(body);
+        list.appendChild(card);
+    });
+    assistantMessages.appendChild(list);
+    assistantMessages.scrollTop = assistantMessages.scrollHeight;
+}
+
+function loadAssistantHistory() {
+    try {
+        return JSON.parse(localStorage.getItem(assistantHistoryKey) || '[]');
+    } catch (e) {
+        return [];
+    }
+}
+
+function saveAssistantHistory() {
+    localStorage.setItem(assistantHistoryKey, JSON.stringify(assistantHistory.slice(-8)));
+}
+
+function renderAssistantWelcome() {
+    assistantMessages.innerHTML = '';
+    appendAssistantMessage('告诉我你的目标、兴趣或预算，我会从当前书店里挑几本合适的书。', 'ai');
+}
+
+function renderAssistantHistoryList() {
+    if (!assistantHistoryList) {
+        return;
+    }
+
+    assistantHistoryList.innerHTML = '';
+    if (assistantHistory.length === 0) {
+        var empty = document.createElement('div');
+        empty.className = 'assistant-history-empty';
+        empty.textContent = '暂无聊天';
+        assistantHistoryList.appendChild(empty);
+        return;
+    }
+
+    assistantHistory.forEach(function (entry, index) {
+        var item = document.createElement('button');
+        item.type = 'button';
+        item.className = 'assistant-history-item' + (index === assistantActiveIndex ? ' is-active' : '');
+        item.textContent = entry.question;
+        item.addEventListener('click', function () {
+            assistantActiveIndex = index;
+            renderAssistantTurn(entry);
+            renderAssistantHistoryList();
+        });
+        assistantHistoryList.appendChild(item);
+    });
+}
+
+function renderAssistantTurn(entry) {
+    assistantMessages.innerHTML = '';
+    appendAssistantMessage(entry.question, 'user');
+    appendAssistantMessage(entry.answer, 'ai');
+    appendAssistantSuggestions(entry.suggestions);
+}
+
+function renderAssistantHistory() {
+    if (!assistantMessages) {
+        return;
+    }
+
+    renderAssistantHistoryList();
+    if (assistantHistory.length === 0) {
+        renderAssistantWelcome();
+        return;
+    }
+
+    assistantActiveIndex = Math.max(0, Math.min(assistantActiveIndex, assistantHistory.length - 1));
+    renderAssistantTurn(assistantHistory[assistantActiveIndex]);
+}
+
+function rememberAssistantTurn(question, answer, suggestions) {
+    assistantHistory.push({
+        question: question,
+        answer: answer,
+        suggestions: suggestions || []
+    });
+    assistantHistory = assistantHistory.slice(-8);
+    assistantActiveIndex = assistantHistory.length - 1;
+    saveAssistantHistory();
+    renderAssistantHistoryList();
+}
+
+async function askBookAssistant(question) {
+    var trimmedQuestion = (question || '').trim();
+    if (!trimmedQuestion) {
+        assistantQuestion.focus();
+        return;
+    }
+
+    openAssistantPanel();
+    appendAssistantMessage(trimmedQuestion, 'user');
+    assistantQuestion.value = '';
+    var loadingMessage = appendAssistantMessage('正在从书库里帮你挑书...', 'ai');
+
+    try {
+        var body = new URLSearchParams();
+        body.append('question', trimmedQuestion);
+        var response = await fetch('/Products/Index?handler=AskAssistant', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+            },
+            body: body.toString()
+        });
+
+        if (!response.ok) {
+            throw new Error('request failed');
+        }
+
+        var result = await response.json();
+        loadingMessage.querySelector('p').textContent = result.message;
+        appendAssistantSuggestions(result.suggestions);
+        rememberAssistantTurn(trimmedQuestion, result.message, result.suggestions);
+    } catch (e) {
+        var failedMessage = '刚才没能连上选书助手，请稍后再试。';
+        loadingMessage.querySelector('p').textContent = failedMessage;
+        rememberAssistantTurn(trimmedQuestion, failedMessage, []);
+    }
+}
+
+function openAssistantPanel() {
+    if (!assistantPanel || !assistantLauncher) {
+        return;
+    }
+
+    assistantPanel.classList.add('is-open');
+    assistantPanel.setAttribute('aria-hidden', 'false');
+    assistantLauncher.setAttribute('aria-expanded', 'true');
+}
+
+function closeAssistantPanel() {
+    if (!assistantPanel || !assistantLauncher) {
+        return;
+    }
+
+    assistantPanel.classList.remove('is-open');
+    assistantPanel.setAttribute('aria-hidden', 'true');
+    assistantLauncher.setAttribute('aria-expanded', 'false');
+}
+
+renderAssistantHistory();
+
+if (assistantForm) {
+    assistantForm.addEventListener('submit', function (event) {
+        event.preventDefault();
+        askBookAssistant(assistantQuestion.value);
+    });
+}
+
+document.querySelectorAll('.assistant-prompts button').forEach(function (button) {
+    button.addEventListener('click', function () {
+        askBookAssistant(button.getAttribute('data-question'));
+    });
+});
+
+if (clearAssistantHistoryButton) {
+    clearAssistantHistoryButton.addEventListener('click', function () {
+        assistantHistory = [];
+        assistantActiveIndex = -1;
+        saveAssistantHistory();
+        renderAssistantHistoryList();
+        renderAssistantWelcome();
+    });
+}
+
+if (newAssistantChatButton) {
+    newAssistantChatButton.addEventListener('click', function () {
+        assistantActiveIndex = -1;
+        renderAssistantHistoryList();
+        renderAssistantWelcome();
+        assistantQuestion.focus();
+    });
+}
+
+if (assistantLauncher) {
+    assistantLauncher.addEventListener('click', function () {
+        if (assistantPanel?.classList.contains('is-open')) {
+            closeAssistantPanel();
+        } else {
+            openAssistantPanel();
+            assistantQuestion?.focus();
+        }
+    });
+}
+
+if (assistantClose) {
+    assistantClose.addEventListener('click', closeAssistantPanel);
+}
 </script>
 
 <style>
+.catalog-hero { grid-template-columns: 1fr; }
+.assistant-fab {
+    position: fixed;
+    right: 26px;
+    bottom: 28px;
+    z-index: 60;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    border: 1px solid rgba(141, 43, 39, 0.22);
+    border-radius: 999px;
+    padding: 0.55rem 0.85rem 0.55rem 0.55rem;
+    background: rgba(255, 251, 245, 0.95);
+    color: var(--ink);
+    box-shadow: 0 18px 46px rgba(53, 24, 16, 0.2);
+}
+.assistant-fab:hover {
+    color: var(--accent);
+    transform: translateY(-2px);
+}
+.assistant-robot {
+    position: relative;
+    width: 42px;
+    height: 42px;
+    display: inline-grid;
+    place-items: center;
+}
+.robot-antenna {
+    position: absolute;
+    top: 0;
+    width: 2px;
+    height: 8px;
+    background: var(--accent);
+}
+.robot-antenna::before {
+    content: "";
+    position: absolute;
+    top: -4px;
+    left: 50%;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    transform: translateX(-50%);
+}
+.robot-face {
+    width: 36px;
+    height: 30px;
+    margin-top: 8px;
+    border: 2px solid var(--ink);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    background: var(--paper-deep);
+}
+.robot-face i {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+}
+.assistant-floating-panel {
+    position: fixed;
+    right: 26px;
+    bottom: 92px;
+    z-index: 59;
+    width: min(720px, calc(100vw - 36px));
+    max-height: min(680px, calc(100vh - 128px));
+    display: none;
+}
+.assistant-floating-panel.is-open {
+    display: block;
+}
+.book-assistant {
+    display: grid;
+    gap: 0.8rem;
+    padding: 1rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(255, 253, 249, 0.97);
+    box-shadow: 0 22px 70px rgba(53, 24, 16, 0.22);
+}
+.assistant-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.8rem;
+}
+.assistant-kicker {
+    color: var(--accent-strong);
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+.assistant-head h2 {
+    margin: 0.15rem 0 0;
+    font-size: 1.28rem;
+}
+.assistant-status {
+    padding: 0.15rem 0.5rem;
+    border-radius: 8px;
+    background: var(--paper-deep);
+    color: var(--muted);
+    font-size: 0.76rem;
+    white-space: nowrap;
+}
+.assistant-window-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.assistant-window-actions button {
+    width: 30px;
+    height: 30px;
+    border: 1px solid var(--line);
+    border-radius: 50%;
+    background: transparent;
+    color: var(--muted);
+    line-height: 1;
+    font-size: 1.25rem;
+}
+.assistant-window-actions button:hover {
+    color: var(--accent);
+    border-color: rgba(141, 43, 39, 0.28);
+}
+.assistant-console {
+    display: grid;
+    grid-template-columns: 128px minmax(0, 1fr);
+    gap: 0.75rem;
+    min-height: 340px;
+}
+.assistant-history-panel {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    gap: 0.55rem;
+    padding: 0.55rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(236, 223, 201, 0.38);
+    min-width: 0;
+}
+.assistant-history-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.45rem;
+}
+.assistant-history-head span {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--ink);
+}
+.assistant-history-head button,
+.assistant-clear-button {
+    border: 0;
+    background: transparent;
+    color: var(--accent);
+    padding: 0;
+    font-size: 0.76rem;
+}
+.assistant-history-list {
+    display: grid;
+    align-content: start;
+    gap: 0.4rem;
+    overflow: auto;
+    min-height: 0;
+}
+.assistant-history-item {
+    width: 100%;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: rgba(255, 253, 249, 0.64);
+    color: var(--muted);
+    padding: 0.45rem 0.5rem;
+    text-align: left;
+    font-size: 0.78rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.assistant-history-item:hover,
+.assistant-history-item.is-active {
+    border-color: rgba(141, 43, 39, 0.24);
+    color: var(--accent);
+    background: rgba(255, 253, 249, 0.9);
+}
+.assistant-history-empty {
+    color: var(--muted);
+    font-size: 0.78rem;
+    padding: 0.35rem 0.1rem;
+}
+.assistant-chat-panel {
+    min-width: 0;
+    display: grid;
+}
+.assistant-messages {
+    display: grid;
+    gap: 0.6rem;
+    max-height: 340px;
+    overflow: auto;
+    padding-right: 0.25rem;
+}
+.assistant-message {
+    max-width: 90%;
+    padding: 0.65rem 0.75rem;
+    border-radius: 8px;
+}
+.assistant-message p {
+    margin: 0;
+    line-height: 1.6;
+    font-size: 0.9rem;
+}
+.assistant-message-ai {
+    justify-self: start;
+    background: rgba(236, 223, 201, 0.62);
+}
+.assistant-message-user {
+    justify-self: end;
+    background: var(--ink);
+    color: #fff8f2;
+}
+.assistant-prompts {
+    display: flex;
+    gap: 0.45rem;
+    flex-wrap: wrap;
+}
+.assistant-prompts button {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--muted);
+    padding: 0.35rem 0.55rem;
+    font-size: 0.82rem;
+}
+.assistant-prompts button:hover {
+    color: var(--accent);
+    border-color: rgba(141, 43, 39, 0.28);
+}
+.assistant-form {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.55rem;
+}
+.assistant-form input {
+    min-width: 0;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(255, 253, 249, 0.9);
+    padding: 0.65rem 0.75rem;
+}
+.assistant-suggestions {
+    display: grid;
+    gap: 0.55rem;
+}
+.assistant-suggestion {
+    display: grid;
+    grid-template-columns: 48px minmax(0, 1fr);
+    gap: 0.6rem;
+    padding: 0.55rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(255, 251, 245, 0.76);
+}
+.assistant-suggestion img {
+    width: 48px;
+    height: 64px;
+    object-fit: cover;
+    border-radius: 6px;
+}
+.assistant-suggestion div {
+    display: grid;
+    gap: 0.15rem;
+    min-width: 0;
+}
+.assistant-suggestion span {
+    color: var(--accent-strong);
+    font-size: 0.74rem;
+    font-weight: 700;
+}
+.assistant-suggestion strong,
+.assistant-suggestion small,
+.assistant-suggestion p {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.assistant-suggestion small,
+.assistant-suggestion p {
+    color: var(--muted);
+    font-size: 0.78rem;
+}
+.assistant-suggestion p {
+    margin: 0;
+}
+.catalog-filter-panel {
+    display: grid;
+    gap: 0.85rem;
+    padding: 1rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(255, 253, 249, 0.72);
+}
+.filter-panel-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: end;
+}
+.filter-panel-head h2 {
+    margin: 0.15rem 0 0;
+    font-size: 1.25rem;
+}
+.filter-panel-head > span {
+    color: var(--muted);
+    font-size: 0.9rem;
+}
 .filter-form { display: flex; flex-direction: column; gap: 0.75rem; }
 .filter-row { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
 .filter-input { padding: 0.4rem 0.6rem; border: 1px solid var(--paper-deep); border-radius: 3px; background: var(--surface); font-size: 0.9rem; }
@@ -336,7 +964,20 @@ async function toggleWishlist(btn, productId) {
 .recommendation-actions { display: grid; gap: 0.45rem; justify-items: end; }
 .recommendation-actions strong { color: var(--accent-strong); font-size: 1rem; }
 @@media (max-width: 640px) {
+    .assistant-fab { right: 16px; bottom: 18px; }
+    .assistant-floating-panel {
+        right: 12px;
+        bottom: 86px;
+        width: calc(100vw - 24px);
+        max-height: calc(100vh - 108px);
+        overflow: auto;
+    }
     .catalog-coupon-strip { align-items: flex-start; flex-direction: column; }
+    .assistant-console { grid-template-columns: 1fr; }
+    .assistant-history-panel { max-height: 180px; }
+    .assistant-form { grid-template-columns: 1fr; }
+    .assistant-messages { max-height: 340px; }
+    .filter-panel-head { align-items: flex-start; flex-direction: column; }
     .recommendation-head { align-items: flex-start; flex-direction: column; }
     .recommendation-note { white-space: normal; }
     .recommendation-list { grid-template-columns: 1fr; }

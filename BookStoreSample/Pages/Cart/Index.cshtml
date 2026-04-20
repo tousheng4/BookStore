@@ -92,5 +92,161 @@
             <a class="primary-button" asp-page="/Cart/Checkout">前往结算</a>
             <a class="ghost-button" asp-page="/Products/Index">继续选书</a>
         </article>
+
+        @if (Model.Items.Count > 0 && Model.Booster.TargetCoupon is not null)
+        {
+            <article class="summary-panel booster-panel">
+                <span class="section-kicker">凑单助手</span>
+                <div class="booster-target">
+                    <div>
+                        <p class="booster-title">再买 ￥@Model.Booster.GapAmount.ToString("0.00")</p>
+                        <p class="panel-copy">
+                            可达成「@Model.Booster.TargetCoupon.Name」
+                            @if (!Model.Booster.IsClaimed)
+                            {
+                                <span>，记得先去领券</span>
+                            }
+                        </p>
+                    </div>
+                    <strong>-￥@Model.Booster.TargetCoupon.DiscountAmount.ToString("0.00")</strong>
+                </div>
+
+                @if (!Model.Booster.IsClaimed)
+                {
+                    <a asp-page="/Account/Coupons" class="ghost-button booster-claim-link">去领券</a>
+                }
+
+                @if (Model.Booster.Suggestions.Count > 0)
+                {
+                    <div class="booster-list">
+                        @foreach (var suggestion in Model.Booster.Suggestions)
+                        {
+                            <article class="booster-item">
+                                <a asp-page="/Products/Details" asp-route-id="@suggestion.Product.Id" class="booster-book">
+                                    <img src="@suggestion.Product.CoverUrl" alt="@suggestion.Product.Title" loading="lazy" />
+                                    <span>@suggestion.Product.Category</span>
+                                    <strong>@suggestion.Product.Title</strong>
+                                    <small>￥@suggestion.Product.Price.ToString("0.00")</small>
+                                </a>
+                                <div class="booster-action">
+                                    @if (suggestion.ReachesTarget)
+                                    {
+                                        <span class="booster-fit">加这本即可达标</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="booster-gap">还差 ￥@suggestion.RemainingGap.ToString("0.00")</span>
+                                    }
+                                    <form method="post" asp-page-handler="AddBoost">
+                                        <input type="hidden" name="productId" value="@suggestion.Product.Id" />
+                                        <button type="submit" class="secondary-button">加入</button>
+                                    </form>
+                                </div>
+                            </article>
+                        }
+                    </div>
+                }
+            </article>
+        }
+        else if (Model.Items.Count > 0)
+        {
+            <article class="summary-panel booster-panel">
+                <span class="section-kicker">凑单助手</span>
+                <p class="panel-copy">当前购物袋已经没有更近的优惠门槛，可以直接结算。</p>
+            </article>
+        }
     </aside>
 </section>
+
+<style>
+.booster-panel {
+    display: grid;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.booster-target {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.85rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(255, 253, 249, 0.72);
+}
+
+.booster-target strong,
+.booster-title {
+    color: var(--accent);
+}
+
+.booster-title {
+    margin: 0 0 0.25rem;
+    font-weight: 800;
+    font-size: 1.15rem;
+}
+
+.booster-claim-link {
+    justify-self: start;
+}
+
+.booster-list {
+    display: grid;
+    gap: 0.85rem;
+}
+
+.booster-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.7rem;
+    padding-bottom: 0.85rem;
+    border-bottom: 1px solid var(--line);
+}
+
+.booster-item:last-child {
+    border-bottom: 0;
+    padding-bottom: 0;
+}
+
+.booster-book {
+    display: grid;
+    grid-template-columns: 56px minmax(0, 1fr);
+    column-gap: 0.75rem;
+    align-items: center;
+}
+
+.booster-book img {
+    grid-row: span 3;
+    width: 56px;
+    aspect-ratio: 3 / 4;
+    object-fit: cover;
+    border-radius: 8px;
+}
+
+.booster-book span,
+.booster-book small,
+.booster-gap {
+    color: var(--muted);
+    font-size: 0.86rem;
+}
+
+.booster-book strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.booster-action {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.booster-fit {
+    color: var(--accent);
+    font-size: 0.86rem;
+    font-weight: 700;
+}
+</style>

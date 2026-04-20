@@ -1,0 +1,216 @@
+@page
+@model BookStoreSample.Pages.Admin.Coupons.IndexModel
+@{
+    ViewData["Title"] = "优惠券管理";
+    var pageNumbers = Enumerable.Range(1, Model.TotalPages)
+        .Where(page => page == 1 || page == Model.TotalPages || Math.Abs(page - Model.CurrentPageNumber) <= 2)
+        .ToList();
+}
+
+<section class="admin-panel admin-panel-plain">
+    <div class="section-heading">
+        <div>
+            <span class="section-kicker">营销工具</span>
+            <h1 class="section-title">优惠券管理</h1>
+        </div>
+        <div class="admin-actions">
+            <a class="ghost-button" asp-page="/Admin/Index">后台看板</a>
+            <a class="primary-button" asp-page="/Admin/Coupons/Create">新增优惠券</a>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Model.Message))
+    {
+        <p class="alert success">@Model.Message</p>
+    }
+
+    <div class="admin-list-summary">
+        <span>共 @Model.TotalCount 张优惠券</span>
+        @if (Model.TotalCount > 0)
+        {
+            <span>当前显示 @Model.StartItem - @Model.EndItem</span>
+        }
+    </div>
+
+    @if (Model.Coupons.Count == 0)
+    {
+        <div class="empty-state">暂无优惠券，创建一个开始吧。</div>
+    }
+    else
+    {
+        <table class="admin-table">
+            <thead>
+            <tr>
+                <th>ID</th>
+                <th>名称</th>
+                <th>优惠码</th>
+                <th>门槛</th>
+                <th>优惠</th>
+                <th>有效期</th>
+                <th>领取/使用</th>
+                <th>状态</th>
+                <th>操作</th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var item in Model.Coupons)
+            {
+                <tr>
+                    <td>@item.Coupon.Id</td>
+                    <td>@item.Coupon.Name</td>
+                    <td><code class="coupon-code">@item.Coupon.Code</code></td>
+                    <td>满 ￥@item.Coupon.MinimumAmount.ToString("0.00")</td>
+                    <td><strong class="discount-amount">-￥@item.Coupon.DiscountAmount.ToString("0.00")</strong></td>
+                    <td>
+                        <span class="date-range">
+                            @item.Coupon.StartsAt.ToLocalTime().ToString("yyyy-MM-dd")
+                            ~
+                            @item.Coupon.EndsAt.ToLocalTime().ToString("yyyy-MM-dd")
+                        </span>
+                    </td>
+                    <td>
+                        <span class="stat-pill">
+                            <span class="stat-total">@item.TotalClaimed</span> 领取
+                            (@item.TotalUsed 已用 / @item.TotalUnused 未用)
+                        </span>
+                    </td>
+                    <td>
+                        <span class="status-pill @(item.Coupon.IsActive ? "status-active" : "status-inactive")">
+                            @(item.Coupon.IsActive ? "生效中" : "已失效")
+                        </span>
+                    </td>
+                    <td class="inline-actions">
+                        <a class="ghost-button" asp-page="/Admin/Coupons/Edit" asp-route-id="@item.Coupon.Id">编辑</a>
+                        <form method="post" asp-page-handler="ToggleActive" asp-route-id="@item.Coupon.Id" asp-route-currentPage="@Model.CurrentPageNumber" class="inline-form">
+                            <button type="submit" class="ghost-button">@(item.Coupon.IsActive ? "失效" : "生效")</button>
+                        </form>
+                        <a class="danger-button" asp-page="/Admin/Coupons/Delete" asp-route-id="@item.Coupon.Id">删除</a>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+
+        @if (Model.TotalPages > 1)
+        {
+            <nav class="admin-pagination" aria-label="优惠券分页导航">
+                <a class="pagination-link @(Model.CurrentPageNumber <= 1 ? "is-disabled" : string.Empty)"
+                   asp-page="/Admin/Coupons/Index"
+                   asp-route-currentPage="@(Model.CurrentPageNumber - 1)">上一页</a>
+
+                <div class="pagination-pages">
+                    @for (var i = 0; i < pageNumbers.Count; i++)
+                    {
+                        if (i > 0 && pageNumbers[i] - pageNumbers[i - 1] > 1)
+                        {
+                            <span class="pagination-ellipsis">…</span>
+                        }
+
+                        var pageNumber = pageNumbers[i];
+                        <a class="pagination-link @(pageNumber == Model.CurrentPageNumber ? "is-current" : string.Empty)"
+                           asp-page="/Admin/Coupons/Index"
+                           asp-route-currentPage="@pageNumber">@pageNumber</a>
+                    }
+                </div>
+
+                <a class="pagination-link @(Model.CurrentPageNumber >= Model.TotalPages ? "is-disabled" : string.Empty)"
+                   asp-page="/Admin/Coupons/Index"
+                   asp-route-currentPage="@(Model.CurrentPageNumber + 1)">下一页</a>
+            </nav>
+        }
+    }
+</section>
+
+<style>
+    .admin-actions {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+
+    .inline-form { margin: 0; }
+
+    .admin-list-summary {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        color: var(--muted);
+        margin-bottom: 1rem;
+    }
+
+    .coupon-code {
+        background: var(--paper-deep);
+        padding: 0.15rem 0.4rem;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        color: var(--accent-strong);
+    }
+
+    .discount-amount { color: var(--accent-strong); }
+
+    .date-range { font-size: 0.85rem; color: var(--muted); white-space: nowrap; }
+
+    .stat-pill { font-size: 0.82rem; color: var(--muted); }
+    .stat-total { font-weight: 600; color: var(--ink); }
+
+    .status-pill {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 8px;
+        padding: 0.25rem 0.55rem;
+        font-weight: 600;
+    }
+
+    .status-active { background: rgba(37, 72, 63, 0.1); color: var(--forest); }
+    .status-inactive { background: rgba(99, 87, 77, 0.12); color: var(--muted); }
+
+    .empty-state { padding: 3rem 0; text-align: center; color: var(--muted); }
+
+    .admin-pagination {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.6rem;
+        flex-wrap: wrap;
+        margin-top: 1.25rem;
+    }
+
+    .pagination-pages {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .pagination-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 2.4rem;
+        min-height: 2.4rem;
+        padding: 0.45rem 0.7rem;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        color: var(--ink);
+        background: rgba(255, 253, 249, 0.7);
+        font-weight: 600;
+    }
+
+    .pagination-link.is-current {
+        background: var(--ink);
+        color: #fff8f2;
+        border-color: var(--ink);
+    }
+
+    .pagination-link.is-disabled {
+        pointer-events: none;
+        opacity: 0.45;
+    }
+
+    .pagination-ellipsis {
+        color: var(--muted);
+        padding: 0 0.2rem;
+    }
+</style>
